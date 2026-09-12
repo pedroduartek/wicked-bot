@@ -28,6 +28,7 @@ async function main() {
             due_at TIMESTAMPTZ NOT NULL,
 
             reminder_sent BOOLEAN NOT NULL DEFAULT FALSE,
+            reminder_sent_at TIMESTAMPTZ,
             reminder_message_id TEXT,
 
             resolved BOOLEAN NOT NULL DEFAULT FALSE,
@@ -44,6 +45,12 @@ async function main() {
                     )
                 )
         );
+    `);
+
+    // Para instalações onde a tabela já existia
+    await db.query(`
+        ALTER TABLE bets
+        ADD COLUMN IF NOT EXISTS reminder_sent_at TIMESTAMPTZ;
     `);
 
     await db.query(`

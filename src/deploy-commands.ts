@@ -20,6 +20,10 @@ const commands = [
     new SlashCommandBuilder()
         .setName('ping')
         .setDescription('Verifica se o Wicked Bot está online'),
+		
+	new SlashCommandBuilder()
+    .setName('roster')
+    .setDescription('Mostra o roster atual da guild'),	
 
     new SlashCommandBuilder()
     .setName('perfil')

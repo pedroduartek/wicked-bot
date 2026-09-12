@@ -7,8 +7,9 @@
     "start": "tsx src/index.ts",
     "dev": "tsx src/index.ts",
     "deploy": "tsx src/deploy-commands.ts",
-    "db:init": "tsx src/init-db.ts"
-  },
+    "db:init": "tsx src/init-db.ts",
+    "db:migrate-multi-profile": "tsx src/migrate-multi-profiles.ts"
+},
   "keywords": [],
   "author": "",
   "license": "ISC",

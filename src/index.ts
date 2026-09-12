@@ -1564,14 +1564,14 @@ client.once(
         await logBotPermissionDiagnostics();
 
         try {
-            await ensureAzuriaPanel();
-            await ensureCommandsHelpMessage();
-        } catch (error) {
-            console.error(
-                '❌ Não foi possível configurar as mensagens do canal:',
-                error,
-            );
-        }
+			await ensureCommandsHelpMessage();
+			await ensureAzuriaPanel();
+		} catch (error) {
+			console.error(
+				'❌ Não foi possível configurar as mensagens do canal:',
+				error,
+		);
+}
     },
 );
 

@@ -19,35 +19,61 @@ if (!token || !clientId || !guildId) {
 const commands = [
     new SlashCommandBuilder()
         .setName('ping')
-        .setDescription('Verifica se o Wicked Bot está online'),
+        .setDescription(
+            'Verifica se o Wicked Bot está online',
+        ),
 
     new SlashCommandBuilder()
         .setName('perfil')
-        .setDescription('Gere as tuas personagens')
+        .setDescription(
+            'Gere as tuas personagens',
+        )
         .addSubcommand(subcommand =>
             subcommand
                 .setName('adicionar')
-                .setDescription('Adiciona uma personagem ao teu perfil'),
+                .setDescription(
+                    'Adiciona uma personagem ao teu perfil',
+                ),
         )
         .addSubcommand(subcommand =>
             subcommand
                 .setName('listar')
-                .setDescription('Mostra as tuas personagens registadas'),
+                .setDescription(
+                    'Mostra as tuas personagens registadas',
+                ),
         )
         .addSubcommand(subcommand =>
             subcommand
                 .setName('editar')
-                .setDescription('Edita uma personagem registada'),
+                .setDescription(
+                    'Edita uma personagem registada',
+                ),
         )
         .addSubcommand(subcommand =>
             subcommand
                 .setName('remover')
-                .setDescription('Remove uma personagem registada'),
+                .setDescription(
+                    'Remove uma personagem registada',
+                ),
         ),
 
     new SlashCommandBuilder()
         .setName('roster')
-        .setDescription('Mostra o roster atual da guild'),
+        .setDescription(
+            'Mostra o roster atual da guild',
+        ),
+
+    new SlashCommandBuilder()
+        .setName('composicao')
+        .setDescription(
+            'Mostra a composição PvP atual da guild',
+        ),
+
+    new SlashCommandBuilder()
+        .setName('composicao-pvm')
+        .setDescription(
+            'Mostra a composição PvM atual da guild',
+        ),
 ].map(command => command.toJSON());
 
 const rest = new REST({
@@ -56,7 +82,9 @@ const rest = new REST({
 
 async function deployCommands() {
     try {
-        console.log('⏳ A registar comandos...');
+        console.log(
+            '⏳ A registar comandos...',
+        );
 
         await rest.put(
             Routes.applicationGuildCommands(
@@ -68,7 +96,9 @@ async function deployCommands() {
             },
         );
 
-        console.log('✅ Comandos registados.');
+        console.log(
+            '✅ Comandos registados.',
+        );
     } catch (error) {
         console.error(
             '❌ Erro ao registar comandos:',

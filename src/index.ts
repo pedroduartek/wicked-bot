@@ -89,10 +89,17 @@ const ROSTER_MEMBERS_PER_PAGE = 5;
 // TYPES
 // =====================================================
 
+type CharacterStatus =
+    | 'pvm'
+    | 'pvp';
+
 type CharacterData = {
     id: string;
     character_name: string;
     character_class: string;
+    character_status:
+        | CharacterStatus
+        | null;
     level: number;
     is_main: boolean;
 };
@@ -100,10 +107,11 @@ type CharacterData = {
 type RosterMember = {
     discord_id: string;
     discord_username: string;
+
     azuria_status:
-        | 'pvm'
-        | 'pvp'
+        | CharacterStatus
         | null;
+
     characters: CharacterData[];
 };
 
@@ -120,6 +128,10 @@ function buildCharacterModal(
         new ModalBuilder()
             .setCustomId(customId)
             .setTitle(title);
+
+    // -------------------------------------------------
+    // Nome
+    // -------------------------------------------------
 
     const nameInput =
         new TextInputBuilder()
@@ -153,6 +165,10 @@ function buildCharacterModal(
             .setTextInputComponent(
                 nameInput,
             );
+
+    // -------------------------------------------------
+    // Classe
+    // -------------------------------------------------
 
     const classSelect =
         new StringSelectMenuBuilder()
@@ -189,6 +205,62 @@ function buildCharacterModal(
                 classSelect,
             );
 
+    // -------------------------------------------------
+    // Estado PvM / PvP
+    // -------------------------------------------------
+
+    const statusSelect =
+        new StringSelectMenuBuilder()
+            .setCustomId(
+                'character-status',
+            )
+            .setPlaceholder(
+                'Seleciona o estado da personagem',
+            )
+            .setMinValues(1)
+            .setMaxValues(1)
+            .setRequired(true)
+            .addOptions(
+                {
+                    label: 'PvP',
+                    description:
+                        'Personagem pronta para PvP',
+                    value: 'pvp',
+
+                    default:
+                        character
+                            ?.character_status ===
+                        'pvp',
+                },
+                {
+                    label: 'PvM',
+                    description:
+                        'Personagem em progressão ou usada para PvM',
+                    value: 'pvm',
+
+                    default:
+                        character
+                            ?.character_status ===
+                        'pvm',
+                },
+            );
+
+    const statusLabel =
+        new LabelBuilder()
+            .setLabel(
+                'Estado da personagem',
+            )
+            .setDescription(
+                'Independente da tua role geral no Azuria',
+            )
+            .setStringSelectMenuComponent(
+                statusSelect,
+            );
+
+    // -------------------------------------------------
+    // Nível
+    // -------------------------------------------------
+
     const levelInput =
         new TextInputBuilder()
             .setCustomId(
@@ -215,6 +287,10 @@ function buildCharacterModal(
                 levelInput,
             );
 
+    // -------------------------------------------------
+    // Main
+    // -------------------------------------------------
+
     const mainSelect =
         new StringSelectMenuBuilder()
             .setCustomId(
@@ -232,8 +308,10 @@ function buildCharacterModal(
                     description:
                         'Definir como personagem principal',
                     value: 'yes',
+
                     default:
-                        character?.is_main ===
+                        character
+                            ?.is_main ===
                         true,
                 },
                 {
@@ -241,8 +319,10 @@ function buildCharacterModal(
                     description:
                         'Personagem secundária',
                     value: 'no',
+
                     default:
-                        character?.is_main ===
+                        character
+                            ?.is_main ===
                         false,
                 },
             );
@@ -262,6 +342,7 @@ function buildCharacterModal(
     modal.addLabelComponents(
         nameLabel,
         classLabel,
+        statusLabel,
         levelLabel,
         mainLabel,
     );
@@ -286,6 +367,12 @@ function readCharacterModal(
                 'character-class',
             )[0];
 
+    const characterStatus =
+        interaction.fields
+            .getStringSelectValues(
+                'character-status',
+            )[0] as CharacterStatus;
+
     const levelText =
         interaction.fields
             .getTextInputValue(
@@ -302,7 +389,9 @@ function readCharacterModal(
     return {
         characterName,
         characterClass,
-        level: Number(levelText),
+        characterStatus,
+        level:
+            Number(levelText),
         requestedMain,
     };
 }
@@ -310,6 +399,7 @@ function readCharacterModal(
 function validateCharacter(
     characterName: string,
     characterClass: string,
+    characterStatus: string,
     level: number,
 ) {
     if (
@@ -329,6 +419,13 @@ function validateCharacter(
     }
 
     if (
+        characterStatus !== 'pvm' &&
+        characterStatus !== 'pvp'
+    ) {
+        return '❌ Estado PvM/PvP inválido.';
+    }
+
+    if (
         !Number.isInteger(level) ||
         level < 1 ||
         level > 999
@@ -345,7 +442,9 @@ function buildCharacterSelect(
 ) {
     const select =
         new StringSelectMenuBuilder()
-            .setCustomId(customId)
+            .setCustomId(
+                customId,
+            )
             .setPlaceholder(
                 'Seleciona uma personagem',
             )
@@ -356,17 +455,28 @@ function buildCharacterSelect(
                     character => ({
                         label:
                             `${
-                                character.is_main
+                                character
+                                    .is_main
                                     ? '⭐ '
                                     : ''
-                            }${
-                                character
-                                    .character_name
-                            }`,
+                            }` +
+                            character
+                                .character_name,
 
                         description:
                             `${character.character_class} • ` +
-                            `Lv. ${character.level}`,
+                            `Lv. ${character.level} • ` +
+                            `${
+                                character
+                                    .character_status ===
+                                'pvp'
+                                    ? 'PvP'
+                                    : character
+                                          .character_status ===
+                                      'pvm'
+                                    ? 'PvM'
+                                    : 'Sem estado'
+                            }`,
 
                         value:
                             String(
@@ -377,7 +487,9 @@ function buildCharacterSelect(
             );
 
     return new ActionRowBuilder<StringSelectMenuBuilder>()
-        .addComponents(select);
+        .addComponents(
+            select,
+        );
 }
 
 // =====================================================
@@ -391,13 +503,15 @@ function buildAzuriaEmbed() {
         )
         .setDescription(
             [
-                'Seleciona o teu estado atual no servidor.',
+                'Seleciona o teu estado geral atual no servidor.',
                 '',
-                '🐉 **PvM** — Estás a jogar no Azuria, mas ainda estás em progressão PvM.',
+                '🐉 **PvM** — Ainda estás em progressão PvM.',
                 '',
                 '⚔️ **PvP** — Já estás preparado para PvP.',
                 '',
-                '**Só podes ter um dos dois estados.**',
+                '**Este estado é relativo ao jogador, não às personagens individualmente.**',
+                '',
+                'Podes ter estado geral PvP e continuar a registar personagens PvM no teu perfil.',
                 '',
                 'A role **Azuria** é atribuída automaticamente.',
                 '',
@@ -463,30 +577,37 @@ function buildCommandsHelpEmbed() {
                 '### 👤 Perfil',
                 '',
                 '`/perfil adicionar`',
-                'Adiciona uma nova personagem ao teu perfil.',
+                'Adiciona uma personagem e permite definir nome, classe, nível, estado PvM/PvP e se é a tua personagem principal.',
                 '',
                 '`/perfil listar`',
                 'Mostra todas as personagens que tens registadas.',
                 '',
                 '`/perfil editar`',
-                'Permite alterar o nome, classe, nível ou personagem principal.',
+                'Permite alterar os dados de uma personagem.',
                 '',
                 '`/perfil remover`',
                 'Remove uma personagem do teu perfil.',
                 '',
-                '⭐ A tua primeira personagem fica automaticamente definida como principal.',
-                'Só podes ter uma personagem principal de cada vez.',
+                '⭐ A primeira personagem fica automaticamente definida como principal.',
                 '',
                 '### ⚔️ Roster',
                 '',
                 '`/roster`',
-                'Mostra o roster atual da guild, incluindo as personagens registadas e o estado de cada jogador no Azuria.',
+                'Mostra todos os membros e personagens registadas.',
                 '',
-                '### 🐉 Estado no Azuria',
+                '### 🛡️ Composição',
                 '',
-                'Usa os botões da mensagem abaixo para escolher entre **PvM** e **PvP**.',
+                '`/composicao`',
+                'Mostra todas as personagens marcadas como PvP, agrupadas por classe.',
                 '',
-                'A role **Azuria** é atribuída automaticamente.',
+                '`/composicao-pvm`',
+                'Mostra todas as personagens marcadas como PvM, agrupadas por classe.',
+                '',
+                '### 🐉 Estado geral no Azuria',
+                '',
+                'Usa os botões da mensagem abaixo para definir o teu estado geral como **PvM** ou **PvP**.',
+                '',
+                'O estado de cada personagem é definido separadamente através de `/perfil adicionar` ou `/perfil editar`.',
             ].join('\n'),
         )
         .setFooter({
@@ -499,7 +620,7 @@ function buildCommandsHelpEmbed() {
 // ENSURE MESSAGES
 // =====================================================
 
-async function ensureCommandsHelpMessage() {
+async function getAzuriaChannel() {
     const channel =
         await client.channels.fetch(
             AZURIA_CHANNEL_ID,
@@ -515,8 +636,12 @@ async function ensureCommandsHelpMessage() {
         );
     }
 
+    return channel as TextChannel;
+}
+
+async function ensureCommandsHelpMessage() {
     const textChannel =
-        channel as TextChannel;
+        await getAzuriaChannel();
 
     const messages =
         await textChannel.messages.fetch({
@@ -561,23 +686,8 @@ async function ensureCommandsHelpMessage() {
 }
 
 async function ensureAzuriaPanel() {
-    const channel =
-        await client.channels.fetch(
-            AZURIA_CHANNEL_ID,
-        );
-
-    if (
-        !channel ||
-        channel.type !==
-            ChannelType.GuildText
-    ) {
-        throw new Error(
-            `O canal ${AZURIA_CHANNEL_ID} não existe ou não é um canal de texto.`,
-        );
-    }
-
     const textChannel =
-        channel as TextChannel;
+        await getAzuriaChannel();
 
     const messages =
         await textChannel.messages.fetch({
@@ -603,6 +713,7 @@ async function ensureAzuriaPanel() {
                 embeds: [
                     buildAzuriaEmbed(),
                 ],
+
                 components: [
                     buildAzuriaButtons(),
                 ],
@@ -616,6 +727,7 @@ async function ensureAzuriaPanel() {
             embeds: [
                 buildAzuriaEmbed(),
             ],
+
             components: [
                 buildAzuriaButtons(),
             ],
@@ -644,25 +756,8 @@ async function logBotPermissionDiagnostics() {
     );
 
     try {
-        const channel =
-            await client.channels.fetch(
-                AZURIA_CHANNEL_ID,
-            );
-
-        if (
-            !channel ||
-            channel.type !==
-                ChannelType.GuildText
-        ) {
-            console.log(
-                `❌ Canal ${AZURIA_CHANNEL_ID} inválido.`,
-            );
-
-            return;
-        }
-
         const textChannel =
-            channel as TextChannel;
+            await getAzuriaChannel();
 
         const guild =
             textChannel.guild;
@@ -700,49 +795,66 @@ async function logBotPermissionDiagnostics() {
 
         const checks = [
             {
-                name: 'Administrator',
+                name:
+                    'Administrator',
+
                 permission:
                     PermissionFlagsBits
                         .Administrator,
             },
             {
-                name: 'ManageRoles',
+                name:
+                    'ManageRoles',
+
                 permission:
                     PermissionFlagsBits
                         .ManageRoles,
             },
             {
-                name: 'ManageMessages',
+                name:
+                    'ManageMessages',
+
                 permission:
                     PermissionFlagsBits
                         .ManageMessages,
             },
             {
-                name: 'ViewChannel',
+                name:
+                    'ViewChannel',
+
                 permission:
                     PermissionFlagsBits
                         .ViewChannel,
             },
             {
-                name: 'SendMessages',
+                name:
+                    'SendMessages',
+
                 permission:
                     PermissionFlagsBits
                         .SendMessages,
             },
             {
-                name: 'EmbedLinks',
+                name:
+                    'EmbedLinks',
+
                 permission:
                     PermissionFlagsBits
                         .EmbedLinks,
             },
         ];
 
-        for (const check of checks) {
+        for (
+            const check
+            of checks
+        ) {
             console.log(
                 `${
-                    botMember.permissions.has(
-                        check.permission,
-                    )
+                    botMember
+                        .permissions
+                        .has(
+                            check.permission,
+                        )
                         ? '✅'
                         : '❌'
                 } ${check.name}`,
@@ -767,16 +879,25 @@ async function logBotPermissionDiagnostics() {
 
         const targetRoles = [
             {
-                label: 'Azuria',
-                id: AZURIA_ROLE_ID,
+                label:
+                    'Azuria',
+
+                id:
+                    AZURIA_ROLE_ID,
             },
             {
-                label: 'Azuria PvP',
-                id: AZURIA_PVP_ROLE_ID,
+                label:
+                    'Azuria PvP',
+
+                id:
+                    AZURIA_PVP_ROLE_ID,
             },
             {
-                label: 'Azuria PvM',
-                id: AZURIA_PVM_ROLE_ID,
+                label:
+                    'Azuria PvM',
+
+                id:
+                    AZURIA_PVM_ROLE_ID,
             },
         ];
 
@@ -799,7 +920,7 @@ async function logBotPermissionDiagnostics() {
 
             console.log('');
             console.log(
-                `${target.label}`,
+                target.label,
             );
 
             console.log(
@@ -845,20 +966,27 @@ async function getRosterMembers():
             SELECT
                 m.discord_id,
                 m.discord_username,
+
                 c.id,
                 c.character_name,
                 c.character_class,
+                c.character_status,
                 c.level,
                 c.is_main
+
             FROM members m
+
             INNER JOIN characters c
                 ON c.discord_id =
                     m.discord_id
+
             ORDER BY
                 LOWER(
                     m.discord_username
                 ) ASC,
+
                 c.is_main DESC,
+
                 LOWER(
                     c.character_name
                 ) ASC
@@ -887,7 +1015,8 @@ async function getRosterMembers():
                 discord_username:
                     row.discord_username,
 
-                azuria_status: null,
+                azuria_status:
+                    null,
 
                 characters: [],
             };
@@ -899,7 +1028,8 @@ async function getRosterMembers():
         }
 
         member.characters.push({
-            id: row.id,
+            id:
+                row.id,
 
             character_name:
                 row.character_name,
@@ -907,7 +1037,11 @@ async function getRosterMembers():
             character_class:
                 row.character_class,
 
-            level: row.level,
+            character_status:
+                row.character_status,
+
+            level:
+                row.level,
 
             is_main:
                 row.is_main,
@@ -964,6 +1098,22 @@ async function getRosterMembers():
     );
 }
 
+function getCharacterStatusText(
+    status:
+        CharacterStatus
+        | null,
+) {
+    if (status === 'pvp') {
+        return '⚔️ PvP';
+    }
+
+    if (status === 'pvm') {
+        return '🐉 PvM';
+    }
+
+    return '⚪ Por definir';
+}
+
 function buildRosterPage(
     members: RosterMember[],
     requestedPage: number,
@@ -971,6 +1121,7 @@ function buildRosterPage(
     const totalPages =
         Math.max(
             1,
+
             Math.ceil(
                 members.length /
                     ROSTER_MEMBERS_PER_PAGE,
@@ -980,6 +1131,7 @@ function buildRosterPage(
     const page =
         Math.max(
             0,
+
             Math.min(
                 requestedPage,
                 totalPages - 1,
@@ -993,6 +1145,7 @@ function buildRosterPage(
     const pageMembers =
         members.slice(
             start,
+
             start +
                 ROSTER_MEMBERS_PER_PAGE,
         );
@@ -1032,14 +1185,14 @@ function buildRosterPage(
         const member
         of pageMembers
     ) {
-        let statusText =
+        let memberStatus =
             '⚪ Sem estado Azuria';
 
         if (
             member.azuria_status ===
             'pvm'
         ) {
-            statusText =
+            memberStatus =
                 '🐉 PvM';
         }
 
@@ -1047,7 +1200,7 @@ function buildRosterPage(
             member.azuria_status ===
             'pvp'
         ) {
-            statusText =
+            memberStatus =
                 '⚔️ PvP';
         }
 
@@ -1059,10 +1212,17 @@ function buildRosterPage(
                             ? '⭐'
                             : '•';
 
+                    const status =
+                        getCharacterStatusText(
+                            character
+                                .character_status,
+                        );
+
                     return (
                         `${icon} **${character.character_name}**` +
                         ` — ${character.character_class}` +
-                        ` • Lv. ${character.level}`
+                        ` • Lv. ${character.level}` +
+                        ` • ${status}`
                     );
                 },
             );
@@ -1073,20 +1233,25 @@ function buildRosterPage(
             );
 
         if (
-            value.length > 1000
+            value.length >
+            1000
         ) {
             value =
                 value.substring(
                     0,
                     997,
-                ) + '...';
+                ) +
+                '...';
         }
 
         embed.addFields({
             name:
-                `👤 ${member.discord_username} — ${statusText}`,
+                `👤 ${member.discord_username} — ${memberStatus}`,
+
             value,
-            inline: false,
+
+            inline:
+                false,
         });
     }
 
@@ -1110,7 +1275,9 @@ function buildRosterButtons(
                         page - 1
                     }`,
                 )
-                .setLabel('Anterior')
+                .setLabel(
+                    'Anterior',
+                )
                 .setStyle(
                     ButtonStyle.Secondary,
                 )
@@ -1124,15 +1291,156 @@ function buildRosterButtons(
                         page + 1
                     }`,
                 )
-                .setLabel('Seguinte')
+                .setLabel(
+                    'Seguinte',
+                )
                 .setStyle(
                     ButtonStyle.Secondary,
                 )
                 .setDisabled(
                     page >=
-                        totalPages - 1,
+                        totalPages -
+                            1,
                 ),
         );
+}
+
+// =====================================================
+// COMPOSICAO
+// =====================================================
+
+async function buildCompositionEmbed(
+    status:
+        CharacterStatus,
+) {
+    const result =
+        await db.query(
+            `
+            SELECT
+                c.character_name,
+                c.character_class,
+                c.level,
+                c.is_main,
+
+                m.discord_username
+
+            FROM characters c
+
+            INNER JOIN members m
+                ON m.discord_id =
+                    c.discord_id
+
+            WHERE
+                c.character_status = $1
+
+            ORDER BY
+                c.character_class ASC,
+                c.is_main DESC,
+                LOWER(
+                    c.character_name
+                ) ASC
+            `,
+            [
+                status,
+            ],
+        );
+
+    const isPvp =
+        status === 'pvp';
+
+    const embed =
+        new EmbedBuilder()
+            .setTitle(
+                isPvp
+                    ? '⚔️ Wicked — Composição PvP'
+                    : '🐉 Wicked — Composição PvM',
+            )
+            .setDescription(
+                `**${result.rows.length} personagens**`,
+            )
+            .setTimestamp();
+
+    if (
+        result.rows.length ===
+        0
+    ) {
+        embed.addFields({
+            name:
+                'Sem personagens',
+
+            value:
+                isPvp
+                    ? 'Ainda não existem personagens marcadas como PvP.'
+                    : 'Ainda não existem personagens marcadas como PvM.',
+        });
+
+        return embed;
+    }
+
+    for (
+        const characterClass
+        of VALID_CLASSES
+    ) {
+        const characters =
+            result.rows.filter(
+                character =>
+                    character
+                        .character_class ===
+                    characterClass,
+            );
+
+        if (
+            characters.length ===
+            0
+        ) {
+            continue;
+        }
+
+        const lines =
+            characters.map(
+                character => {
+                    const main =
+                        character.is_main
+                            ? '⭐ '
+                            : '• ';
+
+                    return (
+                        `${main}**${character.character_name}**` +
+                        ` • Lv. ${character.level}` +
+                        ` • ${character.discord_username}`
+                    );
+                },
+            );
+
+        let value =
+            lines.join(
+                '\n',
+            );
+
+        if (
+            value.length >
+            1000
+        ) {
+            value =
+                value.substring(
+                    0,
+                    997,
+                ) +
+                '...';
+        }
+
+        embed.addFields({
+            name:
+                `${characterClass} (${characters.length})`,
+
+            value,
+
+            inline:
+                false,
+        });
+    }
+
+    return embed;
 }
 
 // =====================================================
@@ -1167,9 +1475,6 @@ client.once(
         await logBotPermissionDiagnostics();
 
         try {
-            // Esta ordem garante:
-            // ajuda em cima
-            // painel Azuria por baixo
             await ensureCommandsHelpMessage();
             await ensureAzuriaPanel();
         } catch (error) {
@@ -1215,10 +1520,13 @@ client.on(
 
             try {
                 const member =
-                    await interaction.guild
-                        .members.fetch(
+                    await interaction
+                        .guild
+                        .members
+                        .fetch(
                             interaction
-                                .user.id,
+                                .user
+                                .id,
                         );
 
                 // =====================================
@@ -1239,13 +1547,18 @@ client.on(
                     ]);
 
                     await interaction.editReply({
-                        content: [
-                            '✅ **Estado atualizado para PvM.**',
-                            '',
-                            'Roles atribuídas:',
-                            '- `Azuria`',
-                            '- `Azuria PvM`',
-                        ].join('\n'),
+                        content:
+                            [
+                                '✅ **Estado geral atualizado para PvM.**',
+                                '',
+                                'Roles atribuídas:',
+                                '- `Azuria`',
+                                '- `Azuria PvM`',
+                                '',
+                                'O estado PvM/PvP das tuas personagens é definido separadamente através do `/perfil`.',
+                            ].join(
+                                '\n',
+                            ),
                     });
 
                     console.log(
@@ -1273,13 +1586,18 @@ client.on(
                     ]);
 
                     await interaction.editReply({
-                        content: [
-                            '✅ **Estado atualizado para PvP.**',
-                            '',
-                            'Roles atribuídas:',
-                            '- `Azuria`',
-                            '- `Azuria PvP`',
-                        ].join('\n'),
+                        content:
+                            [
+                                '✅ **Estado geral atualizado para PvP.**',
+                                '',
+                                'Roles atribuídas:',
+                                '- `Azuria`',
+                                '- `Azuria PvP`',
+                                '',
+                                'Podes continuar a ter personagens individuais marcadas como PvM.',
+                            ].join(
+                                '\n',
+                            ),
                     });
 
                     console.log(
@@ -1290,7 +1608,7 @@ client.on(
                 }
 
                 // =====================================
-                // SAIR DO AZURIA
+                // SAIR
                 // =====================================
 
                 if (
@@ -1304,14 +1622,17 @@ client.on(
                     ]);
 
                     await interaction.editReply({
-                        content: [
-                            '✅ **Estado Azuria removido.**',
-                            '',
-                            'Foram removidas:',
-                            '- `Azuria`',
-                            '- `Azuria PvM`',
-                            '- `Azuria PvP`',
-                        ].join('\n'),
+                        content:
+                            [
+                                '✅ **Estado Azuria removido.**',
+                                '',
+                                'Foram removidas:',
+                                '- `Azuria`',
+                                '- `Azuria PvM`',
+                                '- `Azuria PvP`',
+                            ].join(
+                                '\n',
+                            ),
                     });
 
                     console.log(
@@ -1326,10 +1647,9 @@ client.on(
                     error,
                 );
 
-                await interaction.editReply({
-                    content:
-                        '❌ Não foi possível atualizar as tuas roles.',
-                });
+                await interaction.editReply(
+                    '❌ Não foi possível atualizar as tuas roles.',
+                );
             }
 
             return;
@@ -1359,6 +1679,76 @@ client.on(
             }
 
             // =========================================
+            // /composicao
+            // =========================================
+
+            if (
+                interaction.commandName ===
+                'composicao'
+            ) {
+                await interaction.deferReply();
+
+                try {
+                    const embed =
+                        await buildCompositionEmbed(
+                            'pvp',
+                        );
+
+                    await interaction.editReply({
+                        embeds: [
+                            embed,
+                        ],
+                    });
+                } catch (error) {
+                    console.error(
+                        '❌ Erro composição PvP:',
+                        error,
+                    );
+
+                    await interaction.editReply(
+                        '❌ Ocorreu um erro ao gerar a composição PvP.',
+                    );
+                }
+
+                return;
+            }
+
+            // =========================================
+            // /composicao-pvm
+            // =========================================
+
+            if (
+                interaction.commandName ===
+                'composicao-pvm'
+            ) {
+                await interaction.deferReply();
+
+                try {
+                    const embed =
+                        await buildCompositionEmbed(
+                            'pvm',
+                        );
+
+                    await interaction.editReply({
+                        embeds: [
+                            embed,
+                        ],
+                    });
+                } catch (error) {
+                    console.error(
+                        '❌ Erro composição PvM:',
+                        error,
+                    );
+
+                    await interaction.editReply(
+                        '❌ Ocorreu um erro ao gerar a composição PvM.',
+                    );
+                }
+
+                return;
+            }
+
+            // =========================================
             // /roster
             // =========================================
 
@@ -1373,7 +1763,8 @@ client.on(
                         await getRosterMembers();
 
                     if (
-                        members.length === 0
+                        members.length ===
+                        0
                     ) {
                         await interaction.editReply(
                             'Ainda não existem personagens registadas no roster.',
@@ -1393,10 +1784,13 @@ client.on(
                         );
 
                     await interaction.editReply({
-                        embeds: [embed],
+                        embeds: [
+                            embed,
+                        ],
 
                         components:
-                            totalPages > 1
+                            totalPages >
+                            1
                                 ? [
                                     buildRosterButtons(
                                         interaction
@@ -1440,7 +1834,7 @@ client.on(
                     .getSubcommand();
 
             // =========================================
-            // ADICIONAR
+            // /perfil adicionar
             // =========================================
 
             if (
@@ -1458,7 +1852,7 @@ client.on(
             }
 
             // =========================================
-            // LISTAR
+            // /perfil listar
             // =========================================
 
             if (
@@ -1478,6 +1872,7 @@ client.on(
                                 id,
                                 character_name,
                                 character_class,
+                                character_status,
                                 level,
                                 is_main
 
@@ -1494,13 +1889,15 @@ client.on(
                             `,
                             [
                                 interaction
-                                    .user.id,
+                                    .user
+                                    .id,
                             ],
                         );
 
                     if (
                         result.rows
-                            .length === 0
+                            .length ===
+                        0
                     ) {
                         await interaction.editReply(
                             'Ainda não tens nenhuma personagem registada.\n\n' +
@@ -1512,8 +1909,14 @@ client.on(
 
                     const characters =
                         result.rows.map(
-                            character =>
-                                (
+                            character => {
+                                const status =
+                                    getCharacterStatusText(
+                                        character
+                                            .character_status,
+                                    );
+
+                                return (
                                     `${
                                         character
                                             .is_main
@@ -1522,8 +1925,10 @@ client.on(
                                     }` +
                                     `**${character.character_name}**\n` +
                                     `${character.character_class} • ` +
-                                    `Lv. ${character.level}`
-                                ),
+                                    `Lv. ${character.level} • ` +
+                                    status
+                                );
+                            },
                         );
 
                     await interaction.editReply(
@@ -1538,7 +1943,9 @@ client.on(
                             }`,
                             '',
                             ...characters,
-                        ].join('\n\n'),
+                        ].join(
+                            '\n\n',
+                        ),
                     );
                 } catch (error) {
                     console.error(
@@ -1555,7 +1962,7 @@ client.on(
             }
 
             // =========================================
-            // EDITAR
+            // /perfil editar
             // =========================================
 
             if (
@@ -1570,6 +1977,7 @@ client.on(
                                 id,
                                 character_name,
                                 character_class,
+                                character_status,
                                 level,
                                 is_main
 
@@ -1586,13 +1994,15 @@ client.on(
                             `,
                             [
                                 interaction
-                                    .user.id,
+                                    .user
+                                    .id,
                             ],
                         );
 
                     if (
                         result.rows
-                            .length === 0
+                            .length ===
+                        0
                     ) {
                         await interaction.reply({
                             content:
@@ -1638,7 +2048,7 @@ client.on(
             }
 
             // =========================================
-            // REMOVER
+            // /perfil remover
             // =========================================
 
             if (
@@ -1653,6 +2063,7 @@ client.on(
                                 id,
                                 character_name,
                                 character_class,
+                                character_status,
                                 level,
                                 is_main
 
@@ -1669,13 +2080,15 @@ client.on(
                             `,
                             [
                                 interaction
-                                    .user.id,
+                                    .user
+                                    .id,
                             ],
                         );
 
                     if (
                         result.rows
-                            .length === 0
+                            .length ===
+                        0
                     ) {
                         await interaction.reply({
                             content:
@@ -1760,6 +2173,23 @@ client.on(
                 const members =
                     await getRosterMembers();
 
+                if (
+                    members.length ===
+                    0
+                ) {
+                    await interaction.editReply({
+                        content:
+                            'Ainda não existem personagens registadas no roster.',
+
+                        embeds: [],
+
+                        components:
+                            [],
+                    });
+
+                    return;
+                }
+
                 const {
                     embed,
                     page,
@@ -1767,14 +2197,22 @@ client.on(
                 } =
                     buildRosterPage(
                         members,
-                        Number(pageText),
+                        Number(
+                            pageText,
+                        ),
                     );
 
                 await interaction.editReply({
-                    embeds: [embed],
+                    content:
+                        null,
+
+                    embeds: [
+                        embed,
+                    ],
 
                     components:
-                        totalPages > 1
+                        totalPages >
+                        1
                             ? [
                                 buildRosterButtons(
                                     ownerId,
@@ -1806,50 +2244,68 @@ client.on(
             const characterId =
                 interaction.values[0];
 
-            const result =
-                await db.query(
-                    `
-                    SELECT
-                        id,
-                        character_name,
-                        character_class,
-                        level,
-                        is_main
+            try {
+                const result =
+                    await db.query(
+                        `
+                        SELECT
+                            id,
+                            character_name,
+                            character_class,
+                            character_status,
+                            level,
+                            is_main
 
-                    FROM characters
+                        FROM characters
 
-                    WHERE
-                        id = $1
-                        AND discord_id = $2
-                    `,
-                    [
-                        characterId,
-                        interaction.user.id,
-                    ],
+                        WHERE
+                            id = $1
+                            AND discord_id = $2
+                        `,
+                        [
+                            characterId,
+                            interaction
+                                .user.id,
+                        ],
+                    );
+
+                if (
+                    result.rows
+                        .length ===
+                    0
+                ) {
+                    await interaction.reply({
+                        content:
+                            '❌ Essa personagem já não existe.',
+
+                        flags:
+                            MessageFlags.Ephemeral,
+                    });
+
+                    return;
+                }
+
+                await interaction.showModal(
+                    buildCharacterModal(
+                        `perfil-edit-modal:${characterId}`,
+                        'Editar personagem',
+                        result.rows[0],
+                    ),
+                );
+            } catch (error) {
+                console.error(
+                    '❌ Erro ao abrir edição:',
+                    error,
                 );
 
-            if (
-                result.rows.length ===
-                0
-            ) {
                 await interaction.reply({
                     content:
-                        '❌ Essa personagem já não existe.',
+                        '❌ Ocorreu um erro ao carregar a personagem.',
 
                     flags:
                         MessageFlags.Ephemeral,
                 });
-
-                return;
             }
-
-            await interaction.showModal(
-                buildCharacterModal(
-                    `perfil-edit-modal:${characterId}`,
-                    'Editar personagem',
-                    result.rows[0],
-                ),
-            );
 
             return;
         }
@@ -1866,76 +2322,86 @@ client.on(
             const characterId =
                 interaction.values[0];
 
-            const result =
-                await db.query(
-                    `
-                    SELECT
-                        id,
-                        character_name
+            try {
+                const result =
+                    await db.query(
+                        `
+                        SELECT
+                            id,
+                            character_name
 
-                    FROM characters
+                        FROM characters
 
-                    WHERE
-                        id = $1
-                        AND discord_id = $2
-                    `,
-                    [
-                        characterId,
-                        interaction.user.id,
-                    ],
-                );
-
-            if (
-                result.rows.length ===
-                0
-            ) {
-                await interaction.update({
-                    content:
-                        '❌ Essa personagem já não existe.',
-
-                    components: [],
-                });
-
-                return;
-            }
-
-            const character =
-                result.rows[0];
-
-            const buttons =
-                new ActionRowBuilder<ButtonBuilder>()
-                    .addComponents(
-                        new ButtonBuilder()
-                            .setCustomId(
-                                `perfil-remove-confirm:${character.id}`,
-                            )
-                            .setLabel(
-                                'Remover',
-                            )
-                            .setStyle(
-                                ButtonStyle.Danger,
-                            ),
-
-                        new ButtonBuilder()
-                            .setCustomId(
-                                'perfil-remove-cancel',
-                            )
-                            .setLabel(
-                                'Cancelar',
-                            )
-                            .setStyle(
-                                ButtonStyle.Secondary,
-                            ),
+                        WHERE
+                            id = $1
+                            AND discord_id = $2
+                        `,
+                        [
+                            characterId,
+                            interaction
+                                .user.id,
+                        ],
                     );
 
-            await interaction.update({
-                content:
-                    `⚠️ Tens a certeza de que queres remover **${character.character_name}**?`,
+                if (
+                    result.rows
+                        .length ===
+                    0
+                ) {
+                    await interaction.update({
+                        content:
+                            '❌ Essa personagem já não existe.',
 
-                components: [
-                    buttons,
-                ],
-            });
+                        components:
+                            [],
+                    });
+
+                    return;
+                }
+
+                const character =
+                    result.rows[0];
+
+                const buttons =
+                    new ActionRowBuilder<ButtonBuilder>()
+                        .addComponents(
+                            new ButtonBuilder()
+                                .setCustomId(
+                                    `perfil-remove-confirm:${character.id}`,
+                                )
+                                .setLabel(
+                                    'Remover',
+                                )
+                                .setStyle(
+                                    ButtonStyle.Danger,
+                                ),
+
+                            new ButtonBuilder()
+                                .setCustomId(
+                                    'perfil-remove-cancel',
+                                )
+                                .setLabel(
+                                    'Cancelar',
+                                )
+                                .setStyle(
+                                    ButtonStyle.Secondary,
+                                ),
+                        );
+
+                await interaction.update({
+                    content:
+                        `⚠️ Tens a certeza de que queres remover **${character.character_name}**?`,
+
+                    components: [
+                        buttons,
+                    ],
+                });
+            } catch (error) {
+                console.error(
+                    '❌ Erro ao preparar remoção:',
+                    error,
+                );
+            }
 
             return;
         }
@@ -1953,7 +2419,8 @@ client.on(
                 content:
                     '✅ Remoção cancelada.',
 
-                components: [],
+                components:
+                    [],
             });
 
             return;
@@ -2001,12 +2468,14 @@ client.on(
                         `,
                         [
                             characterId,
-                            interaction.user.id,
+                            interaction
+                                .user.id,
                         ],
                     );
 
                 if (
-                    result.rows.length ===
+                    result.rows
+                        .length ===
                     0
                 ) {
                     await dbClient.query(
@@ -2017,7 +2486,8 @@ client.on(
                         content:
                             '❌ Essa personagem já não existe.',
 
-                        components: [],
+                        components:
+                            [],
                     });
 
                     return;
@@ -2036,7 +2506,8 @@ client.on(
                     `,
                     [
                         characterId,
-                        interaction.user.id,
+                        interaction
+                            .user.id,
                     ],
                 );
 
@@ -2066,13 +2537,16 @@ client.on(
                             LIMIT 1
                             `,
                             [
-                                interaction.user.id,
+                                interaction
+                                    .user
+                                    .id,
                             ],
                         );
 
                     if (
                         replacement.rows
-                            .length > 0
+                            .length >
+                        0
                     ) {
                         await dbClient.query(
                             `
@@ -2087,7 +2561,8 @@ client.on(
                             `,
                             [
                                 replacement
-                                    .rows[0].id,
+                                    .rows[0]
+                                    .id,
                             ],
                         );
 
@@ -2105,14 +2580,19 @@ client.on(
                 let response =
                     `✅ **${character.character_name}** foi removida.`;
 
-                if (newMainName) {
+                if (
+                    newMainName
+                ) {
                     response +=
                         `\n\n⭐ **${newMainName}** passou a ser a tua personagem principal.`;
                 }
 
                 await interaction.editReply({
-                    content: response,
-                    components: [],
+                    content:
+                        response,
+
+                    components:
+                        [],
                 });
             } catch (error) {
                 await dbClient.query(
@@ -2128,7 +2608,8 @@ client.on(
                     content:
                         '❌ Ocorreu um erro ao remover a personagem.',
 
-                    components: [],
+                    components:
+                        [],
                 });
             } finally {
                 dbClient.release();
@@ -2154,6 +2635,7 @@ client.on(
             const {
                 characterName,
                 characterClass,
+                characterStatus,
                 level,
                 requestedMain,
             } =
@@ -2165,10 +2647,13 @@ client.on(
                 validateCharacter(
                     characterName,
                     characterClass,
+                    characterStatus,
                     level,
                 );
 
-            if (validationError) {
+            if (
+                validationError
+            ) {
                 await interaction.editReply(
                     validationError,
                 );
@@ -2190,20 +2675,29 @@ client.on(
                         discord_id,
                         discord_username
                     )
-                    VALUES ($1, $2)
+
+                    VALUES (
+                        $1,
+                        $2
+                    )
 
                     ON CONFLICT (
                         discord_id
                     )
+
                     DO UPDATE SET
                         discord_username =
                             EXCLUDED.discord_username,
+
                         updated_at =
                             NOW()
                     `,
                     [
-                        interaction.user.id,
-                        interaction.user
+                        interaction
+                            .user.id,
+
+                        interaction
+                            .user
                             .username,
                     ],
                 );
@@ -2220,16 +2714,22 @@ client.on(
                             discord_id = $1
                         `,
                         [
-                            interaction.user.id,
+                            interaction
+                                .user
+                                .id,
                         ],
                     );
 
                 const makeMain =
-                    countResult.rows[0]
-                        .count === 0 ||
+                    countResult
+                        .rows[0]
+                        .count ===
+                        0 ||
                     requestedMain;
 
-                if (makeMain) {
+                if (
+                    makeMain
+                ) {
                     await dbClient.query(
                         `
                         UPDATE characters
@@ -2243,7 +2743,9 @@ client.on(
                             AND is_main = TRUE
                         `,
                         [
-                            interaction.user.id,
+                            interaction
+                                .user
+                                .id,
                         ],
                     );
                 }
@@ -2254,21 +2756,27 @@ client.on(
                         discord_id,
                         character_name,
                         character_class,
+                        character_status,
                         level,
                         is_main
                     )
+
                     VALUES (
                         $1,
                         $2,
                         $3,
                         $4,
-                        $5
+                        $5,
+                        $6
                     )
                     `,
                     [
-                        interaction.user.id,
+                        interaction
+                            .user.id,
+
                         characterName,
                         characterClass,
+                        characterStatus,
                         level,
                         makeMain,
                     ],
@@ -2284,15 +2792,20 @@ client.on(
                         '',
                         `**Nome:** ${characterName}`,
                         `**Classe:** ${characterClass}`,
+                        `**Estado:** ${getCharacterStatusText(characterStatus)}`,
                         `**Nível:** ${level}`,
                         `**Principal:** ${
                             makeMain
                                 ? 'Sim ⭐'
                                 : 'Não'
                         }`,
-                    ].join('\n'),
+                    ].join(
+                        '\n',
+                    ),
                 );
-            } catch (error: any) {
+            } catch (
+                error: any
+            ) {
                 await dbClient.query(
                     'ROLLBACK',
                 );
@@ -2344,6 +2857,7 @@ client.on(
             const {
                 characterName,
                 characterClass,
+                characterStatus,
                 level,
                 requestedMain,
             } =
@@ -2355,10 +2869,13 @@ client.on(
                 validateCharacter(
                     characterName,
                     characterClass,
+                    characterStatus,
                     level,
                 );
 
-            if (validationError) {
+            if (
+                validationError
+            ) {
                 await interaction.editReply(
                     validationError,
                 );
@@ -2391,13 +2908,15 @@ client.on(
                         `,
                         [
                             characterId,
-                            interaction.user.id,
+                            interaction
+                                .user.id,
                         ],
                     );
 
                 if (
-                    currentResult.rows
-                        .length === 0
+                    currentResult
+                        .rows.length ===
+                    0
                 ) {
                     await dbClient.query(
                         'ROLLBACK',
@@ -2411,7 +2930,8 @@ client.on(
                 }
 
                 const current =
-                    currentResult.rows[0];
+                    currentResult
+                        .rows[0];
 
                 const countResult =
                     await dbClient.query(
@@ -2425,24 +2945,34 @@ client.on(
                             discord_id = $1
                         `,
                         [
-                            interaction.user.id,
+                            interaction
+                                .user.id,
                         ],
                     );
 
                 const characterCount =
-                    countResult.rows[0]
+                    countResult
+                        .rows[0]
                         .count;
 
                 let finalMain =
                     requestedMain;
 
                 if (
-                    characterCount === 1
+                    characterCount ===
+                    1
                 ) {
-                    finalMain = true;
+                    finalMain =
+                        true;
                 }
 
-                if (finalMain) {
+                // =====================================
+                // Vai ser Main
+                // =====================================
+
+                if (
+                    finalMain
+                ) {
                     await dbClient.query(
                         `
                         UPDATE characters
@@ -2457,7 +2987,9 @@ client.on(
                             AND is_main = TRUE
                         `,
                         [
-                            interaction.user.id,
+                            interaction
+                                .user.id,
+
                             characterId,
                         ],
                     );
@@ -2469,23 +3001,32 @@ client.on(
                         SET
                             character_name = $1,
                             character_class = $2,
-                            level = $3,
+                            character_status = $3,
+                            level = $4,
                             is_main = TRUE,
                             updated_at = NOW()
 
                         WHERE
-                            id = $4
-                            AND discord_id = $5
+                            id = $5
+                            AND discord_id = $6
                         `,
                         [
                             characterName,
                             characterClass,
+                            characterStatus,
                             level,
                             characterId,
-                            interaction.user.id,
+                            interaction
+                                .user.id,
                         ],
                     );
-                } else if (
+                }
+
+                // =====================================
+                // Era Main e deixou de ser
+                // =====================================
+
+                else if (
                     current.is_main
                 ) {
                     await dbClient.query(
@@ -2495,27 +3036,31 @@ client.on(
                         SET
                             character_name = $1,
                             character_class = $2,
-                            level = $3,
+                            character_status = $3,
+                            level = $4,
                             is_main = FALSE,
                             updated_at = NOW()
 
                         WHERE
-                            id = $4
-                            AND discord_id = $5
+                            id = $5
+                            AND discord_id = $6
                         `,
                         [
                             characterName,
                             characterClass,
+                            characterStatus,
                             level,
                             characterId,
-                            interaction.user.id,
+                            interaction
+                                .user.id,
                         ],
                     );
 
                     const replacement =
                         await dbClient.query(
                             `
-                            SELECT id
+                            SELECT
+                                id
 
                             FROM characters
 
@@ -2530,14 +3075,19 @@ client.on(
                             LIMIT 1
                             `,
                             [
-                                interaction.user.id,
+                                interaction
+                                    .user
+                                    .id,
+
                                 characterId,
                             ],
                         );
 
                     if (
-                        replacement.rows
-                            .length > 0
+                        replacement
+                            .rows
+                            .length >
+                        0
                     ) {
                         await dbClient.query(
                             `
@@ -2552,11 +3102,18 @@ client.on(
                             `,
                             [
                                 replacement
-                                    .rows[0].id,
+                                    .rows[0]
+                                    .id,
                             ],
                         );
                     }
-                } else {
+                }
+
+                // =====================================
+                // Continua secundária
+                // =====================================
+
+                else {
                     await dbClient.query(
                         `
                         UPDATE characters
@@ -2564,19 +3121,22 @@ client.on(
                         SET
                             character_name = $1,
                             character_class = $2,
-                            level = $3,
+                            character_status = $3,
+                            level = $4,
                             updated_at = NOW()
 
                         WHERE
-                            id = $4
-                            AND discord_id = $5
+                            id = $5
+                            AND discord_id = $6
                         `,
                         [
                             characterName,
                             characterClass,
+                            characterStatus,
                             level,
                             characterId,
-                            interaction.user.id,
+                            interaction
+                                .user.id,
                         ],
                     );
                 }
@@ -2591,15 +3151,20 @@ client.on(
                         '',
                         `**Nome:** ${characterName}`,
                         `**Classe:** ${characterClass}`,
+                        `**Estado:** ${getCharacterStatusText(characterStatus)}`,
                         `**Nível:** ${level}`,
                         `**Principal:** ${
                             finalMain
                                 ? 'Sim ⭐'
                                 : 'Não'
                         }`,
-                    ].join('\n'),
+                    ].join(
+                        '\n',
+                    ),
                 );
-            } catch (error: any) {
+            } catch (
+                error: any
+            ) {
                 await dbClient.query(
                     'ROLLBACK',
                 );

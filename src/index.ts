@@ -16,11 +16,11 @@ import {
     ModalBuilder,
     ModalSubmitInteraction,
     Partials,
+    PermissionFlagsBits,
     StringSelectMenuBuilder,
     TextChannel,
     TextInputBuilder,
     TextInputStyle,
-	PermissionFlagsBits,
 } from 'discord.js';
 
 import { db } from './database';
@@ -59,7 +59,6 @@ const AZURIA_PVP_EMOJI = '⚔️';
 const AZURIA_PANEL_MARKER =
     'Wicked Bot • Azuria Status';
 
-// Guarda o ID da mensagem durante a execução.
 let azuriaPanelMessageId: string | null =
     null;
 
@@ -71,8 +70,6 @@ const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMembers,
-
-        // Necessários para o sistema de reactions.
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.GuildMessageReactions,
     ],
@@ -370,8 +367,7 @@ function buildCharacterSelect(
                                     ? '⭐ '
                                     : ''
                             }` +
-                            character
-                                .character_name,
+                            character.character_name,
 
                         description:
                             `${character.character_class} • ` +
@@ -455,18 +451,672 @@ async function syncAzuriaRole(
     }
 }
 
-/**
- * No arranque, sincroniza as roles com as reactions.
- *
- * Isto significa que o painel é a fonte de verdade.
- *
- * Se alguém:
- * - reagiu 🐉 -> PvM
- * - reagiu ⚔️ -> PvP
- * - não tem nenhuma reaction -> sem roles Azuria
- *
- * Se tiver as duas, PvP ganha prioridade.
- */
+// =====================================================
+// PERMISSION DEBUG
+// =====================================================
+
+async function logBotPermissionDiagnostics() {
+    console.log('');
+    console.log(
+        '============================================================',
+    );
+    console.log(
+        '🔎 WICKED BOT — PERMISSION DIAGNOSTICS',
+    );
+    console.log(
+        '============================================================',
+    );
+
+    try {
+        const channel =
+            await client.channels.fetch(
+                AZURIA_CHANNEL_ID,
+            );
+
+        if (
+            !channel ||
+            channel.type !==
+                ChannelType.GuildText
+        ) {
+            console.log(
+                `❌ O canal ${AZURIA_CHANNEL_ID} não foi encontrado ou não é um canal de texto.`,
+            );
+
+            return;
+        }
+
+        const textChannel =
+            channel as TextChannel;
+
+        const guild =
+            textChannel.guild;
+
+        await guild.roles.fetch();
+
+        const botMember =
+            await guild.members.fetchMe();
+
+        // =============================================
+        // BOT
+        // =============================================
+
+        console.log('');
+        console.log('🤖 BOT');
+        console.log(
+            '------------------------------------------------------------',
+        );
+        console.log(
+            `User: ${botMember.user.tag}`,
+        );
+        console.log(
+            `User ID: ${botMember.id}`,
+        );
+        console.log(
+            `Guild: ${guild.name}`,
+        );
+        console.log(
+            `Guild ID: ${guild.id}`,
+        );
+
+        // =============================================
+        // ROLES
+        // =============================================
+
+        console.log('');
+        console.log('🏷️ ROLES DO BOT');
+        console.log(
+            '------------------------------------------------------------',
+        );
+
+        const botRoles =
+            [
+                ...botMember.roles.cache.values(),
+            ].sort(
+                (a, b) =>
+                    b.position -
+                    a.position,
+            );
+
+        for (const role of botRoles) {
+            console.log('');
+            console.log(
+                `Role: ${role.name}`,
+            );
+            console.log(
+                `ID: ${role.id}`,
+            );
+            console.log(
+                `Position: ${role.position}`,
+            );
+            console.log(
+                `Managed: ${role.managed}`,
+            );
+
+            const permissions =
+                role.permissions.toArray();
+
+            console.log(
+                `Permissions (${permissions.length}):`,
+            );
+
+            if (
+                permissions.length === 0
+            ) {
+                console.log(
+                    '  - nenhuma',
+                );
+            } else {
+                for (
+                    const permission
+                    of permissions
+                ) {
+                    console.log(
+                        `  - ${permission}`,
+                    );
+                }
+            }
+        }
+
+        // =============================================
+        // EFFECTIVE GUILD PERMISSIONS
+        // =============================================
+
+        console.log('');
+        console.log(
+            '🌐 PERMISSÕES EFETIVAS NO SERVIDOR',
+        );
+        console.log(
+            '------------------------------------------------------------',
+        );
+
+        const guildPermissions =
+            botMember.permissions
+                .toArray()
+                .sort();
+
+        for (
+            const permission
+            of guildPermissions
+        ) {
+            console.log(
+                `✅ ${permission}`,
+            );
+        }
+
+        // =============================================
+        // IMPORTANT GUILD CHECKS
+        // =============================================
+
+        console.log('');
+        console.log(
+            '🧪 CHECKS IMPORTANTES — SERVIDOR',
+        );
+        console.log(
+            '------------------------------------------------------------',
+        );
+
+        const guildChecks = [
+            {
+                name: 'Administrator',
+                permission:
+                    PermissionFlagsBits.Administrator,
+            },
+            {
+                name: 'ManageRoles',
+                permission:
+                    PermissionFlagsBits.ManageRoles,
+            },
+            {
+                name: 'ManageMessages',
+                permission:
+                    PermissionFlagsBits.ManageMessages,
+            },
+            {
+                name: 'ViewChannel',
+                permission:
+                    PermissionFlagsBits.ViewChannel,
+            },
+            {
+                name: 'SendMessages',
+                permission:
+                    PermissionFlagsBits.SendMessages,
+            },
+            {
+                name: 'EmbedLinks',
+                permission:
+                    PermissionFlagsBits.EmbedLinks,
+            },
+            {
+                name: 'AddReactions',
+                permission:
+                    PermissionFlagsBits.AddReactions,
+            },
+            {
+                name: 'ReadMessageHistory',
+                permission:
+                    PermissionFlagsBits.ReadMessageHistory,
+            },
+        ];
+
+        for (
+            const check of guildChecks
+        ) {
+            console.log(
+                `${
+                    botMember.permissions.has(
+                        check.permission,
+                    )
+                        ? '✅'
+                        : '❌'
+                } ${check.name}`,
+            );
+        }
+
+        // =============================================
+        // CHANNEL
+        // =============================================
+
+        console.log('');
+        console.log(
+            `💬 CANAL #${textChannel.name}`,
+        );
+        console.log(
+            '------------------------------------------------------------',
+        );
+        console.log(
+            `Channel ID: ${textChannel.id}`,
+        );
+
+        const channelPermissions =
+            textChannel.permissionsFor(
+                botMember,
+            );
+
+        if (!channelPermissions) {
+            console.log(
+                '❌ Não foi possível calcular as permissões efetivas do canal.',
+            );
+        } else {
+            console.log('');
+            console.log(
+                'Permissões efetivas no canal:',
+            );
+
+            const permissionNames =
+                channelPermissions
+                    .toArray()
+                    .sort();
+
+            for (
+                const permission
+                of permissionNames
+            ) {
+                console.log(
+                    `✅ ${permission}`,
+                );
+            }
+
+            console.log('');
+            console.log(
+                '🧪 CHECKS IMPORTANTES — CANAL',
+            );
+            console.log(
+                '------------------------------------------------------------',
+            );
+
+            const channelChecks = [
+                {
+                    name: 'ViewChannel',
+                    permission:
+                        PermissionFlagsBits.ViewChannel,
+                },
+                {
+                    name: 'SendMessages',
+                    permission:
+                        PermissionFlagsBits.SendMessages,
+                },
+                {
+                    name: 'EmbedLinks',
+                    permission:
+                        PermissionFlagsBits.EmbedLinks,
+                },
+                {
+                    name: 'AddReactions',
+                    permission:
+                        PermissionFlagsBits.AddReactions,
+                },
+                {
+                    name: 'ReadMessageHistory',
+                    permission:
+                        PermissionFlagsBits.ReadMessageHistory,
+                },
+                {
+                    name: 'ManageMessages',
+                    permission:
+                        PermissionFlagsBits.ManageMessages,
+                },
+                {
+                    name: 'ManageRoles',
+                    permission:
+                        PermissionFlagsBits.ManageRoles,
+                },
+            ];
+
+            for (
+                const check
+                of channelChecks
+            ) {
+                console.log(
+                    `${
+                        channelPermissions.has(
+                            check.permission,
+                        )
+                            ? '✅'
+                            : '❌'
+                    } ${check.name}`,
+                );
+            }
+        }
+
+        // =============================================
+        // CHANNEL OVERWRITES
+        // =============================================
+
+        console.log('');
+        console.log(
+            '📝 OVERWRITES RELEVANTES DO CANAL',
+        );
+        console.log(
+            '------------------------------------------------------------',
+        );
+
+        const relevantIds =
+            new Set<string>([
+                guild.id,
+                botMember.id,
+                ...botMember.roles.cache.keys(),
+            ]);
+
+        const relevantOverwrites =
+            [
+                ...textChannel
+                    .permissionOverwrites
+                    .cache.values(),
+            ].filter(overwrite =>
+                relevantIds.has(
+                    overwrite.id,
+                ),
+            );
+
+        if (
+            relevantOverwrites.length ===
+            0
+        ) {
+            console.log(
+                'ℹ️ Nenhum overwrite específico relevante.',
+            );
+        }
+
+        for (
+            const overwrite
+            of relevantOverwrites
+        ) {
+            let name =
+                overwrite.id;
+
+            if (
+                overwrite.id ===
+                guild.id
+            ) {
+                name = '@everyone';
+            } else if (
+                overwrite.id ===
+                botMember.id
+            ) {
+                name =
+                    `${botMember.user.tag} (user)`;
+            } else {
+                const role =
+                    guild.roles.cache.get(
+                        overwrite.id,
+                    );
+
+                if (role) {
+                    name =
+                        `${role.name} (role)`;
+                }
+            }
+
+            console.log('');
+            console.log(
+                `Overwrite: ${name}`,
+            );
+
+            const allowed =
+                overwrite.allow
+                    .toArray()
+                    .sort();
+
+            const denied =
+                overwrite.deny
+                    .toArray()
+                    .sort();
+
+            console.log('ALLOW:');
+
+            if (
+                allowed.length === 0
+            ) {
+                console.log(
+                    '  - nenhum',
+                );
+            } else {
+                for (
+                    const permission
+                    of allowed
+                ) {
+                    console.log(
+                        `  ✅ ${permission}`,
+                    );
+                }
+            }
+
+            console.log('DENY:');
+
+            if (
+                denied.length === 0
+            ) {
+                console.log(
+                    '  - nenhum',
+                );
+            } else {
+                for (
+                    const permission
+                    of denied
+                ) {
+                    console.log(
+                        `  ❌ ${permission}`,
+                    );
+                }
+            }
+        }
+
+        // =============================================
+        // ROLE HIERARCHY
+        // =============================================
+
+        console.log('');
+        console.log(
+            '📊 HIERARQUIA DE ROLES',
+        );
+        console.log(
+            '------------------------------------------------------------',
+        );
+
+        console.log(
+            `Role mais alta do bot: ${botMember.roles.highest.name}`,
+        );
+        console.log(
+            `Role ID: ${botMember.roles.highest.id}`,
+        );
+        console.log(
+            `Position: ${botMember.roles.highest.position}`,
+        );
+
+        const targetRoles = [
+            {
+                label: 'Azuria',
+                id: AZURIA_ROLE_ID,
+            },
+            {
+                label: 'Azuria PvP',
+                id: AZURIA_PVP_ROLE_ID,
+            },
+            {
+                label: 'Azuria PvM',
+                id: AZURIA_PVM_ROLE_ID,
+            },
+        ];
+
+        for (
+            const target
+            of targetRoles
+        ) {
+            const role =
+                guild.roles.cache.get(
+                    target.id,
+                );
+
+            console.log('');
+
+            if (!role) {
+                console.log(
+                    `❌ ${target.label}: ROLE NÃO ENCONTRADA`,
+                );
+                console.log(
+                    `ID procurado: ${target.id}`,
+                );
+
+                continue;
+            }
+
+            console.log(
+                `Role: ${target.label}`,
+            );
+            console.log(
+                `ID: ${role.id}`,
+            );
+            console.log(
+                `Position: ${role.position}`,
+            );
+            console.log(
+                `Managed: ${
+                    role.managed
+                        ? '⚠️ SIM'
+                        : '✅ NÃO'
+                }`,
+            );
+            console.log(
+                `Editable pelo bot: ${
+                    role.editable
+                        ? '✅ SIM'
+                        : '❌ NÃO'
+                }`,
+            );
+
+            const botAbove =
+                botMember.roles.highest
+                    .position >
+                role.position;
+
+            console.log(
+                `Bot está acima: ${
+                    botAbove
+                        ? '✅ SIM'
+                        : '❌ NÃO'
+                }`,
+            );
+
+            console.log(
+                `Diferença de posição: ${
+                    botMember.roles.highest
+                        .position -
+                    role.position
+                }`,
+            );
+        }
+
+        // =============================================
+        // FINAL SUMMARY
+        // =============================================
+
+        console.log('');
+        console.log('📋 RESUMO');
+        console.log(
+            '------------------------------------------------------------',
+        );
+
+        const canManageRoles =
+            botMember.permissions.has(
+                PermissionFlagsBits.ManageRoles,
+            );
+
+        const canManageMessages =
+            channelPermissions?.has(
+                PermissionFlagsBits.ManageMessages,
+            ) ?? false;
+
+        const canAddReactions =
+            channelPermissions?.has(
+                PermissionFlagsBits.AddReactions,
+            ) ?? false;
+
+        const canReadHistory =
+            channelPermissions?.has(
+                PermissionFlagsBits.ReadMessageHistory,
+            ) ?? false;
+
+        console.log(
+            `Manage Roles: ${
+                canManageRoles
+                    ? '✅'
+                    : '❌'
+            }`,
+        );
+
+        console.log(
+            `Manage Messages em #${textChannel.name}: ${
+                canManageMessages
+                    ? '✅'
+                    : '❌'
+            }`,
+        );
+
+        console.log(
+            `Add Reactions em #${textChannel.name}: ${
+                canAddReactions
+                    ? '✅'
+                    : '❌'
+            }`,
+        );
+
+        console.log(
+            `Read Message History em #${textChannel.name}: ${
+                canReadHistory
+                    ? '✅'
+                    : '❌'
+            }`,
+        );
+
+        for (
+            const target
+            of targetRoles
+        ) {
+            const role =
+                guild.roles.cache.get(
+                    target.id,
+                );
+
+            if (!role) {
+                console.log(
+                    `${target.label}: ❌ inexistente`,
+                );
+
+                continue;
+            }
+
+            console.log(
+                `${target.label}: ${
+                    role.editable
+                        ? '✅ bot consegue gerir'
+                        : '❌ bot NÃO consegue gerir'
+                }`,
+            );
+        }
+
+        console.log('');
+        console.log(
+            '============================================================',
+        );
+        console.log(
+            '🔎 FIM DO DIAGNÓSTICO',
+        );
+        console.log(
+            '============================================================',
+        );
+        console.log('');
+    } catch (error) {
+        console.error(
+            '❌ Erro ao gerar diagnóstico de permissões:',
+            error,
+        );
+    }
+}
+
+// =====================================================
+// AZURIA RECONCILIATION
+// =====================================================
+
 async function reconcileAzuriaPanel(
     message: Message<true>,
 ) {
@@ -500,7 +1150,9 @@ async function reconcileAzuriaPanel(
 
         for (const user of users.values()) {
             if (!user.bot) {
-                pvmUserIds.add(user.id);
+                pvmUserIds.add(
+                    user.id,
+                );
             }
         }
     }
@@ -511,7 +1163,9 @@ async function reconcileAzuriaPanel(
 
         for (const user of users.values()) {
             if (!user.bot) {
-                pvpUserIds.add(user.id);
+                pvpUserIds.add(
+                    user.id,
+                );
             }
         }
     }
@@ -520,21 +1174,37 @@ async function reconcileAzuriaPanel(
         await message.guild.members.fetch();
 
     for (
-        const member of guildMembers.values()
+        const member
+        of guildMembers.values()
     ) {
         if (member.user.bot) {
             continue;
         }
 
+        // Discord não permite ao bot gerir
+        // membros cuja role máxima esteja
+        // acima/igual à role máxima do bot.
+        if (!member.manageable) {
+            console.log(
+                `⚠️ Não posso gerir ${member.user.username}; hierarquia do membro está acima da do bot.`,
+            );
+
+            continue;
+        }
+
         const hasPvmReaction =
-            pvmUserIds.has(member.id);
+            pvmUserIds.has(
+                member.id,
+            );
 
         const hasPvpReaction =
-            pvpUserIds.has(member.id);
+            pvpUserIds.has(
+                member.id,
+            );
 
         try {
             // -----------------------------------------
-            // PvP tem prioridade caso existam as duas.
+            // PvP tem prioridade se existirem as duas
             // -----------------------------------------
 
             if (hasPvpReaction) {
@@ -547,14 +1217,17 @@ async function reconcileAzuriaPanel(
                     AZURIA_PVP_ROLE_ID,
                 ]);
 
-                // Limpar reação PvM duplicada.
                 if (
                     hasPvmReaction &&
                     pvmReaction
                 ) {
-                    await pvmReaction.users.remove(
-                        member.id,
-                    );
+                    await pvmReaction.users
+                        .remove(
+                            member.id,
+                        )
+                        .catch(
+                            () => {},
+                        );
                 }
 
                 continue;
@@ -578,7 +1251,7 @@ async function reconcileAzuriaPanel(
             }
 
             // -----------------------------------------
-            // Sem reactions -> sem estado Azuria
+            // Sem reação
             // -----------------------------------------
 
             const hasAnyAzuriaRole =
@@ -612,15 +1285,10 @@ async function reconcileAzuriaPanel(
     );
 }
 
-/**
- * Procura a mensagem do painel.
- *
- * Se existir:
- *   reutiliza-a.
- *
- * Se não existir:
- *   cria-a.
- */
+// =====================================================
+// AZURIA PANEL
+// =====================================================
+
 async function ensureAzuriaPanel() {
     const channel =
         await client.channels.fetch(
@@ -661,10 +1329,6 @@ async function ensureAzuriaPanel() {
             );
         });
 
-    // ---------------------------------------------
-    // Criar mensagem caso ainda não exista
-    // ---------------------------------------------
-
     if (!panelMessage) {
         panelMessage =
             await textChannel.send({
@@ -677,8 +1341,6 @@ async function ensureAzuriaPanel() {
             '✅ Painel Azuria criado.',
         );
     } else {
-        // Atualiza o texto caso alteremos
-        // o painel futuramente.
         await panelMessage.edit({
             embeds: [
                 buildAzuriaEmbed(),
@@ -693,10 +1355,6 @@ async function ensureAzuriaPanel() {
     azuriaPanelMessageId =
         panelMessage.id;
 
-    // ---------------------------------------------
-    // Garantir que as duas reactions existem
-    // ---------------------------------------------
-
     await panelMessage.react(
         AZURIA_PVM_EMOJI,
     );
@@ -709,13 +1367,11 @@ async function ensureAzuriaPanel() {
         '✅ Reactions 🐉 e ⚔️ configuradas.',
     );
 
-    // Atualizar cache da mensagem/reactions.
     const freshMessage =
         await textChannel.messages.fetch(
             panelMessage.id,
         );
 
-    // Sincronizar roles existentes.
     await reconcileAzuriaPanel(
         freshMessage,
     );
@@ -966,598 +1622,10 @@ function buildRosterButtons(
 }
 
 // =====================================================
-// PERMISSION DEBUG
-// =====================================================
-
-async function logBotPermissionDiagnostics() {
-    console.log('');
-    console.log('==============================================');
-    console.log('🔎 WICKED BOT — PERMISSION DIAGNOSTICS');
-    console.log('==============================================');
-
-    try {
-        const channel =
-            await client.channels.fetch(
-                AZURIA_CHANNEL_ID,
-            );
-
-        if (
-            !channel ||
-            channel.type !== ChannelType.GuildText
-        ) {
-            console.log(
-                `❌ O canal ${AZURIA_CHANNEL_ID} não foi encontrado ou não é um canal de texto.`,
-            );
-
-            return;
-        }
-
-        const textChannel =
-            channel as TextChannel;
-
-        const guild =
-            textChannel.guild;
-
-        // Garante que temos roles atualizadas.
-        await guild.roles.fetch();
-
-        const botMember =
-            await guild.members.fetchMe();
-
-        console.log('');
-        console.log('🤖 BOT');
-        console.log('----------------------------------------------');
-        console.log(
-            `User: ${botMember.user.tag}`,
-        );
-        console.log(
-            `User ID: ${botMember.id}`,
-        );
-
-        console.log('');
-        console.log('🏷️ ROLES DO BOT');
-        console.log('----------------------------------------------');
-
-        const botRoles =
-            [...botMember.roles.cache.values()]
-                .sort(
-                    (a, b) =>
-                        b.position -
-                        a.position,
-                );
-
-        for (const role of botRoles) {
-            console.log('');
-            console.log(
-                `Role: ${role.name}`,
-            );
-
-            console.log(
-                `ID: ${role.id}`,
-            );
-
-            console.log(
-                `Position: ${role.position}`,
-            );
-
-            console.log(
-                `Managed: ${role.managed}`,
-            );
-
-            const permissions =
-                role.permissions.toArray();
-
-            console.log(
-                `Permissions (${permissions.length}):`,
-            );
-
-            if (
-                permissions.length === 0
-            ) {
-                console.log(
-                    '  - nenhuma',
-                );
-            } else {
-                for (
-                    const permission
-                    of permissions
-                ) {
-                    console.log(
-                        `  - ${permission}`,
-                    );
-                }
-            }
-        }
-
-        // =============================================
-        // GUILD PERMISSIONS
-        // =============================================
-
-        console.log('');
-        console.log('🌐 PERMISSÕES EFETIVAS NO SERVIDOR');
-        console.log('----------------------------------------------');
-
-        const guildPermissions =
-            botMember.permissions.toArray();
-
-        for (
-            const permission
-            of guildPermissions
-        ) {
-            console.log(
-                `✅ ${permission}`,
-            );
-        }
-
-        // =============================================
-        // IMPORTANT GUILD CHECKS
-        // =============================================
-
-        console.log('');
-        console.log('🧪 CHECKS IMPORTANTES — SERVIDOR');
-        console.log('----------------------------------------------');
-
-        const guildChecks = [
-            {
-                name: 'Administrator',
-                permission:
-                    PermissionFlagsBits.Administrator,
-            },
-            {
-                name: 'ManageRoles',
-                permission:
-                    PermissionFlagsBits.ManageRoles,
-            },
-            {
-                name: 'ManageMessages',
-                permission:
-                    PermissionFlagsBits.ManageMessages,
-            },
-            {
-                name: 'ViewChannel',
-                permission:
-                    PermissionFlagsBits.ViewChannel,
-            },
-            {
-                name: 'SendMessages',
-                permission:
-                    PermissionFlagsBits.SendMessages,
-            },
-            {
-                name: 'AddReactions',
-                permission:
-                    PermissionFlagsBits.AddReactions,
-            },
-            {
-                name: 'ReadMessageHistory',
-                permission:
-                    PermissionFlagsBits.ReadMessageHistory,
-            },
-        ];
-
-        for (
-            const check of guildChecks
-        ) {
-            console.log(
-                `${
-                    botMember.permissions.has(
-                        check.permission,
-                    )
-                        ? '✅'
-                        : '❌'
-                } ${check.name}`,
-            );
-        }
-
-        // =============================================
-        // CHANNEL PERMISSIONS
-        // =============================================
-
-        console.log('');
-        console.log(`💬 CANAL #${textChannel.name}`);
-        console.log('----------------------------------------------');
-        console.log(
-            `Channel ID: ${textChannel.id}`,
-        );
-
-        const channelPermissions =
-            textChannel.permissionsFor(
-                botMember,
-            );
-
-        if (!channelPermissions) {
-            console.log(
-                '❌ Não foi possível calcular as permissões do canal.',
-            );
-        } else {
-            console.log('');
-            console.log(
-                'Permissões efetivas no canal:',
-            );
-
-            for (
-                const permission
-                of channelPermissions.toArray()
-            ) {
-                console.log(
-                    `✅ ${permission}`,
-                );
-            }
-
-            console.log('');
-            console.log(
-                '🧪 CHECKS IMPORTANTES — CANAL',
-            );
-            console.log(
-                '----------------------------------------------',
-            );
-
-            const channelChecks = [
-                {
-                    name: 'ViewChannel',
-                    permission:
-                        PermissionFlagsBits.ViewChannel,
-                },
-                {
-                    name: 'SendMessages',
-                    permission:
-                        PermissionFlagsBits.SendMessages,
-                },
-                {
-                    name: 'EmbedLinks',
-                    permission:
-                        PermissionFlagsBits.EmbedLinks,
-                },
-                {
-                    name: 'AddReactions',
-                    permission:
-                        PermissionFlagsBits.AddReactions,
-                },
-                {
-                    name: 'ReadMessageHistory',
-                    permission:
-                        PermissionFlagsBits.ReadMessageHistory,
-                },
-                {
-                    name: 'ManageMessages',
-                    permission:
-                        PermissionFlagsBits.ManageMessages,
-                },
-                {
-                    name: 'ManageRoles',
-                    permission:
-                        PermissionFlagsBits.ManageRoles,
-                },
-            ];
-
-            for (
-                const check
-                of channelChecks
-            ) {
-                console.log(
-                    `${
-                        channelPermissions.has(
-                            check.permission,
-                        )
-                            ? '✅'
-                            : '❌'
-                    } ${check.name}`,
-                );
-            }
-        }
-
-        // =============================================
-        // CHANNEL OVERWRITES
-        // =============================================
-
-        console.log('');
-        console.log('📝 OVERWRITES RELEVANTES DO CANAL');
-        console.log('----------------------------------------------');
-
-        const relevantIds =
-            new Set<string>([
-                guild.id,
-                botMember.id,
-                ...botMember.roles.cache.keys(),
-            ]);
-
-        const relevantOverwrites =
-            [...textChannel
-                .permissionOverwrites
-                .cache.values()]
-                .filter(overwrite =>
-                    relevantIds.has(
-                        overwrite.id,
-                    ),
-                );
-
-        if (
-            relevantOverwrites.length ===
-            0
-        ) {
-            console.log(
-                'ℹ️ Nenhum overwrite específico relevante.',
-            );
-        }
-
-        for (
-            const overwrite
-            of relevantOverwrites
-        ) {
-            let name =
-                overwrite.id;
-
-            if (
-                overwrite.id ===
-                guild.id
-            ) {
-                name = '@everyone';
-            } else if (
-                overwrite.id ===
-                botMember.id
-            ) {
-                name =
-                    `${botMember.user.tag} (user)`;
-            } else {
-                const role =
-                    guild.roles.cache.get(
-                        overwrite.id,
-                    );
-
-                if (role) {
-                    name =
-                        `${role.name} (role)`;
-                }
-            }
-
-            console.log('');
-            console.log(
-                `Overwrite: ${name}`,
-            );
-
-            const allowed =
-                overwrite.allow.toArray();
-
-            const denied =
-                overwrite.deny.toArray();
-
-            console.log('ALLOW:');
-
-            if (
-                allowed.length === 0
-            ) {
-                console.log(
-                    '  - nenhum',
-                );
-            } else {
-                for (
-                    const permission
-                    of allowed
-                ) {
-                    console.log(
-                        `  ✅ ${permission}`,
-                    );
-                }
-            }
-
-            console.log('DENY:');
-
-            if (
-                denied.length === 0
-            ) {
-                console.log(
-                    '  - nenhum',
-                );
-            } else {
-                for (
-                    const permission
-                    of denied
-                ) {
-                    console.log(
-                        `  ❌ ${permission}`,
-                    );
-                }
-            }
-        }
-
-        // =============================================
-        // ROLE HIERARCHY
-        // =============================================
-
-        console.log('');
-        console.log('📊 HIERARQUIA DE ROLES');
-        console.log('----------------------------------------------');
-
-        console.log(
-            `Role mais alta do bot: ${botMember.roles.highest.name}`,
-        );
-
-        console.log(
-            `Position: ${botMember.roles.highest.position}`,
-        );
-
-        const targetRoles = [
-            {
-                label: 'Azuria',
-                id: AZURIA_ROLE_ID,
-            },
-            {
-                label: 'Azuria PvP',
-                id: AZURIA_PVP_ROLE_ID,
-            },
-            {
-                label: 'Azuria PvM',
-                id: AZURIA_PVM_ROLE_ID,
-            },
-        ];
-
-        for (
-            const target
-            of targetRoles
-        ) {
-            const role =
-                guild.roles.cache.get(
-                    target.id,
-                );
-
-            console.log('');
-
-            if (!role) {
-                console.log(
-                    `❌ ${target.label}: ROLE NÃO ENCONTRADA`,
-                );
-
-                console.log(
-                    `ID procurado: ${target.id}`,
-                );
-
-                continue;
-            }
-
-            console.log(
-                `${target.label}`,
-            );
-
-            console.log(
-                `ID: ${role.id}`,
-            );
-
-            console.log(
-                `Position: ${role.position}`,
-            );
-
-            console.log(
-                `Editable: ${
-                    role.editable
-                        ? '✅ SIM'
-                        : '❌ NÃO'
-                }`,
-            );
-
-            console.log(
-                `Managed: ${
-                    role.managed
-                        ? '⚠️ SIM'
-                        : '✅ NÃO'
-                }`,
-            );
-
-            const botAbove =
-                botMember.roles.highest
-                    .position >
-                role.position;
-
-            console.log(
-                `Bot está acima: ${
-                    botAbove
-                        ? '✅ SIM'
-                        : '❌ NÃO'
-                }`,
-            );
-        }
-
-        // =============================================
-        // FINAL SUMMARY
-        // =============================================
-
-        console.log('');
-        console.log('📋 RESUMO');
-        console.log('----------------------------------------------');
-
-        const canManageRoles =
-            botMember.permissions.has(
-                PermissionFlagsBits.ManageRoles,
-            );
-
-        console.log(
-            `Manage Roles: ${
-                canManageRoles
-                    ? '✅'
-                    : '❌'
-            }`,
-        );
-
-        for (
-            const target
-            of targetRoles
-        ) {
-            const role =
-                guild.roles.cache.get(
-                    target.id,
-                );
-
-            if (!role) {
-                console.log(
-                    `${target.label}: ❌ inexistente`,
-                );
-
-                continue;
-            }
-
-            console.log(
-                `${target.label}: ${
-                    role.editable
-                        ? '✅ bot consegue gerir'
-                        : '❌ bot NÃO consegue gerir'
-                }`,
-            );
-        }
-
-        console.log('');
-        console.log('==============================================');
-        console.log('🔎 FIM DO DIAGNÓSTICO');
-        console.log('==============================================');
-        console.log('');
-    } catch (error) {
-        console.error(
-            '❌ Erro ao gerar diagnóstico de permissões:',
-            error,
-        );
-    }
-}
-
-// =====================================================
 // READY
 // =====================================================
 
 client.once(
-    Events.ClientReady,
-    async readyClient => {
-        console.log(
-            `✅ Bot online como ${readyClient.user.tag}`,
-        );
-
-        try {
-            const result =
-                await db.query(
-                    'SELECT NOW() AS current_time',
-                );
-
-            console.log(
-                '✅ PostgreSQL ligado:',
-                result.rows[0].current_time,
-            );
-        } catch (error) {
-            console.error(
-                '❌ Não foi possível ligar ao PostgreSQL:',
-                error,
-            );
-        }
-
-        // Diagnóstico completo
-        await logBotPermissionDiagnostics();
-
-        // Painel Azuria
-        try {
-            await ensureAzuriaPanel();
-        } catch (error) {
-            console.error(
-                '❌ Não foi possível configurar o painel Azuria:',
-                error,
-            );
-        }
-    },
-);
     Events.ClientReady,
     async readyClient => {
         console.log(
@@ -1587,6 +1655,12 @@ client.once(
         }
 
         // ---------------------------------------------
+        // Permission diagnostics
+        // ---------------------------------------------
+
+        await logBotPermissionDiagnostics();
+
+        // ---------------------------------------------
         // Painel Azuria
         // ---------------------------------------------
 
@@ -1610,10 +1684,6 @@ client.on(
 
     async (reaction, user) => {
         try {
-            // -----------------------------------------
-            // Resolver partials
-            // -----------------------------------------
-
             if (reaction.partial) {
                 await reaction.fetch();
             }
@@ -1626,10 +1696,6 @@ client.on(
             if (fullUser.bot) {
                 return;
             }
-
-            // -----------------------------------------
-            // Só queremos a mensagem Azuria
-            // -----------------------------------------
 
             if (
                 reaction.message.id !==
@@ -1664,26 +1730,31 @@ client.on(
                     fullUser.id,
                 );
 
+            if (!member.manageable) {
+                console.log(
+                    `⚠️ Não posso gerir ${fullUser.username}; hierarquia superior à do bot.`,
+                );
+
+                return;
+            }
+
             // =========================================
-            // 🐉 PvM
+            // PvM
             // =========================================
 
             if (
                 emoji ===
                 AZURIA_PVM_EMOJI
             ) {
-                // Remover estado PvP.
                 await member.roles.remove(
                     AZURIA_PVP_ROLE_ID,
                 );
 
-                // Adicionar Azuria + PvM.
                 await member.roles.add([
                     AZURIA_ROLE_ID,
                     AZURIA_PVM_ROLE_ID,
                 ]);
 
-                // Remover reaction PvP caso exista.
                 const pvpReaction =
                     reaction.message
                         .reactions.cache
@@ -1700,7 +1771,12 @@ client.on(
                             fullUser.id,
                         )
                         .catch(
-                            () => {},
+                            error => {
+                                console.error(
+                                    `⚠️ Não consegui remover reação PvP de ${fullUser.username}:`,
+                                    error,
+                                );
+                            },
                         );
                 }
 
@@ -1712,25 +1788,22 @@ client.on(
             }
 
             // =========================================
-            // ⚔️ PvP
+            // PvP
             // =========================================
 
             if (
                 emoji ===
                 AZURIA_PVP_EMOJI
             ) {
-                // Remover estado PvM.
                 await member.roles.remove(
                     AZURIA_PVM_ROLE_ID,
                 );
 
-                // Adicionar Azuria + PvP.
                 await member.roles.add([
                     AZURIA_ROLE_ID,
                     AZURIA_PVP_ROLE_ID,
                 ]);
 
-                // Remover reaction PvM caso exista.
                 const pvmReaction =
                     reaction.message
                         .reactions.cache
@@ -1747,7 +1820,12 @@ client.on(
                             fullUser.id,
                         )
                         .catch(
-                            () => {},
+                            error => {
+                                console.error(
+                                    `⚠️ Não consegui remover reação PvM de ${fullUser.username}:`,
+                                    error,
+                                );
+                            },
                         );
                 }
 
@@ -1820,6 +1898,14 @@ client.on(
                 await guild.members.fetch(
                     fullUser.id,
                 );
+
+            if (!member.manageable) {
+                console.log(
+                    `⚠️ Não posso gerir ${fullUser.username}; hierarquia superior à do bot.`,
+                );
+
+                return;
+            }
 
             // =========================================
             // Removeu PvM

@@ -457,62 +457,6 @@ function readCharacterModal(
     };
 }
 
-    interaction:
-        ModalSubmitInteraction,
-) {
-    const characterName =
-        interaction.fields
-            .getTextInputValue(
-                'character-name',
-            )
-            .trim();
-
-    const characterClass =
-        interaction.fields
-            .getStringSelectValues(
-                'character-class',
-            )[0];
-
-    const statusValues =
-        interaction.fields
-            .getStringSelectValues(
-                'character-status',
-            );
-
-    const characterStatus =
-        statusValues[0] as
-            CharacterStatus |
-            undefined;
-
-    if (!characterStatus) {
-        throw new Error(
-            'character-status não foi preenchido.',
-        );
-    }
-
-    const levelText =
-        interaction.fields
-            .getTextInputValue(
-                'character-level',
-            )
-            .trim();
-
-    const requestedMain =
-        interaction.fields
-            .getStringSelectValues(
-                'character-main',
-            )[0] === 'yes';
-
-    return {
-        characterName,
-        characterClass,
-        characterStatus,
-        level:
-            Number(levelText),
-        requestedMain,
-    };
-}
-
 function validateCharacter(
     characterName: string,
     characterClass: string,
@@ -2912,6 +2856,11 @@ client.on(
                 'perfil-edit-modal:',
             )
         ) {
+            console.log(
+                '📨 SUBMIT DE EDIÇÃO RECEBIDO:',
+                interaction.customId,
+            );
+
             await interaction.deferReply({
                 flags:
                     MessageFlags.Ephemeral,
@@ -3034,6 +2983,10 @@ client.on(
                             true;
                     }
 
+                    // =================================
+                    // VAI SER MAIN
+                    // =================================
+
                     if (
                         finalMain
                     ) {
@@ -3084,7 +3037,13 @@ client.on(
                                     .user.id,
                             ],
                         );
-                    } else if (
+                    }
+
+                    // =================================
+                    // ERA MAIN E DEIXOU DE SER
+                    // =================================
+
+                    else if (
                         current.is_main
                     ) {
                         await dbClient.query(
@@ -3165,7 +3124,13 @@ client.on(
                                 ],
                             );
                         }
-                    } else {
+                    }
+
+                    // =================================
+                    // CONTINUA SECUNDÁRIA
+                    // =================================
+
+                    else {
                         await dbClient.query(
                             `
                             UPDATE characters
@@ -3214,6 +3179,10 @@ client.on(
                             '\n',
                         ),
                     );
+
+                    console.log(
+                        `✅ Personagem ${characterName} atualizada para ${characterStatus}.`,
+                    );
                 } catch (
                     error: any
                 ) {
@@ -3233,6 +3202,7 @@ client.on(
                     }
 
                     console.error(
+                        '❌ Erro DB ao editar personagem:',
                         error,
                     );
 
@@ -3249,7 +3219,7 @@ client.on(
                 );
 
                 await interaction.editReply(
-                    '❌ Não foi possível ler os dados da personagem. Confirma o estado PvM/PvP e tenta novamente.',
+                    '❌ Não foi possível ler os dados da personagem. Confirma todos os campos e tenta novamente.',
                 );
             }
 

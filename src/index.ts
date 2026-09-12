@@ -4,17 +4,20 @@ import {
     ActionRowBuilder,
     ButtonBuilder,
     ButtonStyle,
+    ChannelType,
     Client,
     EmbedBuilder,
     Events,
     GatewayIntentBits,
     GuildMember,
     LabelBuilder,
+    Message,
     MessageFlags,
     ModalBuilder,
     ModalSubmitInteraction,
-    PermissionFlagsBits,
+    Partials,
     StringSelectMenuBuilder,
+    TextChannel,
     TextInputBuilder,
     TextInputStyle,
 } from 'discord.js';
@@ -33,9 +36,9 @@ if (!token) {
     );
 }
 
-// -----------------------------------------------------
-// AZURIA ROLES
-// -----------------------------------------------------
+// =====================================================
+// AZURIA
+// =====================================================
 
 const AZURIA_ROLE_ID =
     '1547612647736746074';
@@ -46,12 +49,44 @@ const AZURIA_PVP_ROLE_ID =
 const AZURIA_PVM_ROLE_ID =
     '1548261013550276648';
 
+const AZURIA_CHANNEL_ID =
+    '1548265183053357146';
+
+const AZURIA_PVM_EMOJI = '🐉';
+const AZURIA_PVP_EMOJI = '⚔️';
+
+const AZURIA_PANEL_MARKER =
+    'Wicked Bot • Azuria Status';
+
+// Guarda o ID da mensagem durante a execução.
+let azuriaPanelMessageId: string | null =
+    null;
+
+// =====================================================
+// CLIENT
+// =====================================================
+
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMembers,
+
+        // Necessários para o sistema de reactions.
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.GuildMessageReactions,
+    ],
+
+    partials: [
+        Partials.Message,
+        Partials.Channel,
+        Partials.Reaction,
+        Partials.User,
     ],
 });
+
+// =====================================================
+// GENERAL CONFIG
+// =====================================================
 
 const VALID_CLASSES = [
     'Guerreiro Corpo',
@@ -104,15 +139,9 @@ function buildCharacterModal(
 
     const nameInput =
         new TextInputBuilder()
-            .setCustomId(
-                'character-name',
-            )
-            .setStyle(
-                TextInputStyle.Short,
-            )
-            .setPlaceholder(
-                'Ex: PedroWar',
-            )
+            .setCustomId('character-name')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Ex: PedroWar')
             .setMinLength(2)
             .setMaxLength(24)
             .setRequired(true);
@@ -125,15 +154,11 @@ function buildCharacterModal(
 
     const nameLabel =
         new LabelBuilder()
-            .setLabel(
-                'Nome da personagem',
-            )
+            .setLabel('Nome da personagem')
             .setDescription(
                 'Nome exato da personagem no Azuria',
             )
-            .setTextInputComponent(
-                nameInput,
-            );
+            .setTextInputComponent(nameInput);
 
     // -------------------------------------------------
     // Classe
@@ -141,9 +166,7 @@ function buildCharacterModal(
 
     const classSelect =
         new StringSelectMenuBuilder()
-            .setCustomId(
-                'character-class',
-            )
+            .setCustomId('character-class')
             .setPlaceholder(
                 'Seleciona a classe',
             )
@@ -180,12 +203,8 @@ function buildCharacterModal(
 
     const levelInput =
         new TextInputBuilder()
-            .setCustomId(
-                'character-level',
-            )
-            .setStyle(
-                TextInputStyle.Short,
-            )
+            .setCustomId('character-level')
+            .setStyle(TextInputStyle.Short)
             .setPlaceholder('Ex: 120')
             .setMinLength(1)
             .setMaxLength(3)
@@ -210,9 +229,7 @@ function buildCharacterModal(
 
     const mainSelect =
         new StringSelectMenuBuilder()
-            .setCustomId(
-                'character-main',
-            )
+            .setCustomId('character-main')
             .setPlaceholder(
                 'É a tua personagem principal?',
             )
@@ -226,8 +243,7 @@ function buildCharacterModal(
                         'Definir como personagem principal',
                     value: 'yes',
                     default:
-                        character
-                            ?.is_main ===
+                        character?.is_main ===
                         true,
                 },
                 {
@@ -236,8 +252,7 @@ function buildCharacterModal(
                         'Personagem secundária',
                     value: 'no',
                     default:
-                        character
-                            ?.is_main ===
+                        character?.is_main ===
                         false,
                 },
             );
@@ -265,8 +280,7 @@ function buildCharacterModal(
 }
 
 function readCharacterModal(
-    interaction:
-        ModalSubmitInteraction,
+    interaction: ModalSubmitInteraction,
 ) {
     const characterName =
         interaction.fields
@@ -351,8 +365,7 @@ function buildCharacterSelect(
                     character => ({
                         label:
                             `${
-                                character
-                                    .is_main
+                                character.is_main
                                     ? '⭐ '
                                     : ''
                             }` +
@@ -377,6 +390,29 @@ function buildCharacterSelect(
 // =====================================================
 // AZURIA HELPERS
 // =====================================================
+
+function buildAzuriaEmbed() {
+    return new EmbedBuilder()
+        .setTitle('⚔️ Estado no Azuria')
+        .setDescription(
+            [
+                'Seleciona o teu estado atual no servidor através das reações abaixo.',
+                '',
+                `${AZURIA_PVM_EMOJI} **PvM** — Estás a jogar no Azuria, mas ainda estás em progressão PvM.`,
+                '',
+                `${AZURIA_PVP_EMOJI} **PvP** — Já estás preparado para PvP.`,
+                '',
+                '**Só podes ter um dos dois estados.**',
+                '',
+                'A role **Azuria** é atribuída automaticamente a todos os jogadores que selecionem PvM ou PvP.',
+                '',
+                'Para deixares de estar marcado como jogador de Azuria, remove a tua reação.',
+            ].join('\n'),
+        )
+        .setFooter({
+            text: AZURIA_PANEL_MARKER,
+        });
+}
 
 async function syncAzuriaRole(
     member: GuildMember,
@@ -418,54 +454,270 @@ async function syncAzuriaRole(
     }
 }
 
-function buildAzuriaPanel() {
-    const buttons =
-        new ActionRowBuilder<ButtonBuilder>()
-            .addComponents(
-                new ButtonBuilder()
-                    .setCustomId(
-                        'azuria-pvm',
-                    )
-                    .setLabel('PvM')
-                    .setEmoji('🐉')
-                    .setStyle(
-                        ButtonStyle.Secondary,
-                    ),
+/**
+ * No arranque, sincroniza as roles com as reactions.
+ *
+ * Isto significa que o painel é a fonte de verdade.
+ *
+ * Se alguém:
+ * - reagiu 🐉 -> PvM
+ * - reagiu ⚔️ -> PvP
+ * - não tem nenhuma reaction -> sem roles Azuria
+ *
+ * Se tiver as duas, PvP ganha prioridade.
+ */
+async function reconcileAzuriaPanel(
+    message: Message<true>,
+) {
+    console.log(
+        '⏳ A sincronizar reactions do Azuria...',
+    );
 
-                new ButtonBuilder()
-                    .setCustomId(
-                        'azuria-pvp',
-                    )
-                    .setLabel('PvP')
-                    .setEmoji('⚔️')
-                    .setStyle(
-                        ButtonStyle.Danger,
-                    ),
+    const pvmReaction =
+        message.reactions.cache.find(
+            reaction =>
+                reaction.emoji.name ===
+                AZURIA_PVM_EMOJI,
+        );
+
+    const pvpReaction =
+        message.reactions.cache.find(
+            reaction =>
+                reaction.emoji.name ===
+                AZURIA_PVP_EMOJI,
+        );
+
+    const pvmUserIds =
+        new Set<string>();
+
+    const pvpUserIds =
+        new Set<string>();
+
+    if (pvmReaction) {
+        const users =
+            await pvmReaction.users.fetch();
+
+        for (const user of users.values()) {
+            if (!user.bot) {
+                pvmUserIds.add(user.id);
+            }
+        }
+    }
+
+    if (pvpReaction) {
+        const users =
+            await pvpReaction.users.fetch();
+
+        for (const user of users.values()) {
+            if (!user.bot) {
+                pvpUserIds.add(user.id);
+            }
+        }
+    }
+
+    const guildMembers =
+        await message.guild.members.fetch();
+
+    for (
+        const member of guildMembers.values()
+    ) {
+        if (member.user.bot) {
+            continue;
+        }
+
+        const hasPvmReaction =
+            pvmUserIds.has(member.id);
+
+        const hasPvpReaction =
+            pvpUserIds.has(member.id);
+
+        try {
+            // -----------------------------------------
+            // PvP tem prioridade caso existam as duas.
+            // -----------------------------------------
+
+            if (hasPvpReaction) {
+                await member.roles.remove(
+                    AZURIA_PVM_ROLE_ID,
+                );
+
+                await member.roles.add([
+                    AZURIA_ROLE_ID,
+                    AZURIA_PVP_ROLE_ID,
+                ]);
+
+                // Limpar reação PvM duplicada.
+                if (
+                    hasPvmReaction &&
+                    pvmReaction
+                ) {
+                    await pvmReaction.users.remove(
+                        member.id,
+                    );
+                }
+
+                continue;
+            }
+
+            // -----------------------------------------
+            // PvM
+            // -----------------------------------------
+
+            if (hasPvmReaction) {
+                await member.roles.remove(
+                    AZURIA_PVP_ROLE_ID,
+                );
+
+                await member.roles.add([
+                    AZURIA_ROLE_ID,
+                    AZURIA_PVM_ROLE_ID,
+                ]);
+
+                continue;
+            }
+
+            // -----------------------------------------
+            // Sem reactions -> sem estado Azuria
+            // -----------------------------------------
+
+            const hasAnyAzuriaRole =
+                member.roles.cache.has(
+                    AZURIA_ROLE_ID,
+                ) ||
+                member.roles.cache.has(
+                    AZURIA_PVM_ROLE_ID,
+                ) ||
+                member.roles.cache.has(
+                    AZURIA_PVP_ROLE_ID,
+                );
+
+            if (hasAnyAzuriaRole) {
+                await member.roles.remove([
+                    AZURIA_ROLE_ID,
+                    AZURIA_PVM_ROLE_ID,
+                    AZURIA_PVP_ROLE_ID,
+                ]);
+            }
+        } catch (error) {
+            console.error(
+                `❌ Erro ao sincronizar Azuria para ${member.user.username}:`,
+                error,
             );
+        }
+    }
 
-    const embed =
-        new EmbedBuilder()
-            .setTitle(
-                '⚔️ Estado no Azuria',
-            )
-            .setDescription(
-                [
-                    'Seleciona o teu estado atual no Azuria.',
-                    '',
-                    '🐉 **PvM** — Estás a jogar no Azuria mas ainda estás em progressão PvM.',
-                    '',
-                    '⚔️ **PvP** — Estás a jogar no Azuria e já estás preparado para PvP.',
-                    '',
-                    'A role **Azuria** é atribuída automaticamente.',
-                    '',
-                    'Podes carregar novamente no teu estado atual para o remover.',
-                ].join('\n'),
+    console.log(
+        '✅ Reactions do Azuria sincronizadas.',
+    );
+}
+
+/**
+ * Procura a mensagem do painel.
+ *
+ * Se existir:
+ *   reutiliza-a.
+ *
+ * Se não existir:
+ *   cria-a.
+ */
+async function ensureAzuriaPanel() {
+    const channel =
+        await client.channels.fetch(
+            AZURIA_CHANNEL_ID,
+        );
+
+    if (
+        !channel ||
+        channel.type !==
+            ChannelType.GuildText
+    ) {
+        throw new Error(
+            `O canal Azuria (${AZURIA_CHANNEL_ID}) não existe ou não é um canal de texto.`,
+        );
+    }
+
+    const textChannel =
+        channel as TextChannel;
+
+    const messages =
+        await textChannel.messages.fetch({
+            limit: 100,
+        });
+
+    let panelMessage =
+        messages.find(message => {
+            if (
+                message.author.id !==
+                client.user?.id
+            ) {
+                return false;
+            }
+
+            return message.embeds.some(
+                embed =>
+                    embed.footer?.text ===
+                    AZURIA_PANEL_MARKER,
             );
+        });
 
-    return {
-        embed,
-        buttons,
-    };
+    // ---------------------------------------------
+    // Criar mensagem caso ainda não exista
+    // ---------------------------------------------
+
+    if (!panelMessage) {
+        panelMessage =
+            await textChannel.send({
+                embeds: [
+                    buildAzuriaEmbed(),
+                ],
+            });
+
+        console.log(
+            '✅ Painel Azuria criado.',
+        );
+    } else {
+        // Atualiza o texto caso alteremos
+        // o painel futuramente.
+        await panelMessage.edit({
+            embeds: [
+                buildAzuriaEmbed(),
+            ],
+        });
+
+        console.log(
+            '✅ Painel Azuria encontrado.',
+        );
+    }
+
+    azuriaPanelMessageId =
+        panelMessage.id;
+
+    // ---------------------------------------------
+    // Garantir que as duas reactions existem
+    // ---------------------------------------------
+
+    await panelMessage.react(
+        AZURIA_PVM_EMOJI,
+    );
+
+    await panelMessage.react(
+        AZURIA_PVP_EMOJI,
+    );
+
+    console.log(
+        '✅ Reactions 🐉 e ⚔️ configuradas.',
+    );
+
+    // Atualizar cache da mensagem/reactions.
+    const freshMessage =
+        await textChannel.messages.fetch(
+            panelMessage.id,
+        );
+
+    // Sincronizar roles existentes.
+    await reconcileAzuriaPanel(
+        freshMessage,
+    );
 }
 
 // =====================================================
@@ -723,6 +975,10 @@ client.once(
             `✅ Bot online como ${readyClient.user.tag}`,
         );
 
+        // ---------------------------------------------
+        // PostgreSQL
+        // ---------------------------------------------
+
         try {
             const result =
                 await db.query(
@@ -737,6 +993,293 @@ client.once(
         } catch (error) {
             console.error(
                 '❌ Não foi possível ligar ao PostgreSQL:',
+                error,
+            );
+        }
+
+        // ---------------------------------------------
+        // Painel Azuria
+        // ---------------------------------------------
+
+        try {
+            await ensureAzuriaPanel();
+        } catch (error) {
+            console.error(
+                '❌ Não foi possível configurar o painel Azuria:',
+                error,
+            );
+        }
+    },
+);
+
+// =====================================================
+// AZURIA REACTION ADD
+// =====================================================
+
+client.on(
+    Events.MessageReactionAdd,
+
+    async (reaction, user) => {
+        try {
+            // -----------------------------------------
+            // Resolver partials
+            // -----------------------------------------
+
+            if (reaction.partial) {
+                await reaction.fetch();
+            }
+
+            const fullUser =
+                user.partial
+                    ? await user.fetch()
+                    : user;
+
+            if (fullUser.bot) {
+                return;
+            }
+
+            // -----------------------------------------
+            // Só queremos a mensagem Azuria
+            // -----------------------------------------
+
+            if (
+                reaction.message.id !==
+                    azuriaPanelMessageId ||
+                reaction.message.channelId !==
+                    AZURIA_CHANNEL_ID
+            ) {
+                return;
+            }
+
+            const emoji =
+                reaction.emoji.name;
+
+            if (
+                emoji !==
+                    AZURIA_PVM_EMOJI &&
+                emoji !==
+                    AZURIA_PVP_EMOJI
+            ) {
+                return;
+            }
+
+            const guild =
+                reaction.message.guild;
+
+            if (!guild) {
+                return;
+            }
+
+            const member =
+                await guild.members.fetch(
+                    fullUser.id,
+                );
+
+            // =========================================
+            // 🐉 PvM
+            // =========================================
+
+            if (
+                emoji ===
+                AZURIA_PVM_EMOJI
+            ) {
+                // Remover estado PvP.
+                await member.roles.remove(
+                    AZURIA_PVP_ROLE_ID,
+                );
+
+                // Adicionar Azuria + PvM.
+                await member.roles.add([
+                    AZURIA_ROLE_ID,
+                    AZURIA_PVM_ROLE_ID,
+                ]);
+
+                // Remover reaction PvP caso exista.
+                const pvpReaction =
+                    reaction.message
+                        .reactions.cache
+                        .find(
+                            item =>
+                                item.emoji
+                                    .name ===
+                                AZURIA_PVP_EMOJI,
+                        );
+
+                if (pvpReaction) {
+                    await pvpReaction.users
+                        .remove(
+                            fullUser.id,
+                        )
+                        .catch(
+                            () => {},
+                        );
+                }
+
+                console.log(
+                    `🐉 ${fullUser.username} → Azuria PvM`,
+                );
+
+                return;
+            }
+
+            // =========================================
+            // ⚔️ PvP
+            // =========================================
+
+            if (
+                emoji ===
+                AZURIA_PVP_EMOJI
+            ) {
+                // Remover estado PvM.
+                await member.roles.remove(
+                    AZURIA_PVM_ROLE_ID,
+                );
+
+                // Adicionar Azuria + PvP.
+                await member.roles.add([
+                    AZURIA_ROLE_ID,
+                    AZURIA_PVP_ROLE_ID,
+                ]);
+
+                // Remover reaction PvM caso exista.
+                const pvmReaction =
+                    reaction.message
+                        .reactions.cache
+                        .find(
+                            item =>
+                                item.emoji
+                                    .name ===
+                                AZURIA_PVM_EMOJI,
+                        );
+
+                if (pvmReaction) {
+                    await pvmReaction.users
+                        .remove(
+                            fullUser.id,
+                        )
+                        .catch(
+                            () => {},
+                        );
+                }
+
+                console.log(
+                    `⚔️ ${fullUser.username} → Azuria PvP`,
+                );
+
+                return;
+            }
+        } catch (error) {
+            console.error(
+                '❌ Erro ao processar reaction Azuria:',
+                error,
+            );
+        }
+    },
+);
+
+// =====================================================
+// AZURIA REACTION REMOVE
+// =====================================================
+
+client.on(
+    Events.MessageReactionRemove,
+
+    async (reaction, user) => {
+        try {
+            if (reaction.partial) {
+                await reaction.fetch();
+            }
+
+            const fullUser =
+                user.partial
+                    ? await user.fetch()
+                    : user;
+
+            if (fullUser.bot) {
+                return;
+            }
+
+            if (
+                reaction.message.id !==
+                    azuriaPanelMessageId ||
+                reaction.message.channelId !==
+                    AZURIA_CHANNEL_ID
+            ) {
+                return;
+            }
+
+            const emoji =
+                reaction.emoji.name;
+
+            if (
+                emoji !==
+                    AZURIA_PVM_EMOJI &&
+                emoji !==
+                    AZURIA_PVP_EMOJI
+            ) {
+                return;
+            }
+
+            const guild =
+                reaction.message.guild;
+
+            if (!guild) {
+                return;
+            }
+
+            const member =
+                await guild.members.fetch(
+                    fullUser.id,
+                );
+
+            // =========================================
+            // Removeu PvM
+            // =========================================
+
+            if (
+                emoji ===
+                AZURIA_PVM_EMOJI
+            ) {
+                await member.roles.remove(
+                    AZURIA_PVM_ROLE_ID,
+                );
+
+                await syncAzuriaRole(
+                    member,
+                );
+
+                console.log(
+                    `➖ ${fullUser.username} removeu Azuria PvM`,
+                );
+
+                return;
+            }
+
+            // =========================================
+            // Removeu PvP
+            // =========================================
+
+            if (
+                emoji ===
+                AZURIA_PVP_EMOJI
+            ) {
+                await member.roles.remove(
+                    AZURIA_PVP_ROLE_ID,
+                );
+
+                await syncAzuriaRole(
+                    member,
+                );
+
+                console.log(
+                    `➖ ${fullUser.username} removeu Azuria PvP`,
+                );
+
+                return;
+            }
+        } catch (error) {
+            console.error(
+                '❌ Erro ao processar remoção de reaction Azuria:',
                 error,
             );
         }
@@ -772,57 +1315,6 @@ client.on(
                 );
 
                 return;
-            }
-
-            // -----------------------------------------
-            // /azuria painel
-            // -----------------------------------------
-
-            if (
-                interaction.commandName ===
-                'azuria'
-            ) {
-                if (
-                    !interaction.memberPermissions
-                        ?.has(
-                            PermissionFlagsBits
-                                .ManageGuild,
-                        )
-                ) {
-                    await interaction.reply({
-                        content:
-                            '❌ Não tens permissão para publicar este painel.',
-
-                        flags:
-                            MessageFlags.Ephemeral,
-                    });
-
-                    return;
-                }
-
-                const subcommand =
-                    interaction.options
-                        .getSubcommand();
-
-                if (
-                    subcommand ===
-                    'painel'
-                ) {
-                    const {
-                        embed,
-                        buttons,
-                    } =
-                        buildAzuriaPanel();
-
-                    await interaction.reply({
-                        embeds: [embed],
-                        components: [
-                            buttons,
-                        ],
-                    });
-
-                    return;
-                }
             }
 
             // -----------------------------------------
@@ -1190,157 +1682,6 @@ client.on(
         }
 
         // =============================================
-        // AZURIA BUTTONS
-        // =============================================
-
-        if (
-            interaction.isButton() &&
-            (
-                interaction.customId ===
-                    'azuria-pvm' ||
-                interaction.customId ===
-                    'azuria-pvp'
-            )
-        ) {
-            if (!interaction.guild) {
-                return;
-            }
-
-            await interaction.deferReply({
-                flags:
-                    MessageFlags.Ephemeral,
-            });
-
-            try {
-                const member =
-                    await interaction.guild
-                        .members.fetch(
-                            interaction
-                                .user.id,
-                        );
-
-                const hasPvm =
-                    member.roles.cache.has(
-                        AZURIA_PVM_ROLE_ID,
-                    );
-
-                const hasPvp =
-                    member.roles.cache.has(
-                        AZURIA_PVP_ROLE_ID,
-                    );
-
-                // =====================================
-                // PvM
-                // =====================================
-
-                if (
-                    interaction.customId ===
-                    'azuria-pvm'
-                ) {
-                    // Já tinha PvM:
-                    // remover o estado.
-                    if (hasPvm) {
-                        await member.roles.remove(
-                            AZURIA_PVM_ROLE_ID,
-                        );
-
-                        await syncAzuriaRole(
-                            member,
-                        );
-
-                        await interaction.editReply(
-                            '🐉 **Azuria PvM** removido.',
-                        );
-
-                        return;
-                    }
-
-                    // PvM e PvP são exclusivos.
-                    if (hasPvp) {
-                        await member.roles.remove(
-                            AZURIA_PVP_ROLE_ID,
-                        );
-                    }
-
-                    await member.roles.add([
-                        AZURIA_ROLE_ID,
-                        AZURIA_PVM_ROLE_ID,
-                    ]);
-
-                    await syncAzuriaRole(
-                        member,
-                    );
-
-                    await interaction.editReply(
-                        '🐉 Estado atualizado para **Azuria PvM**.',
-                    );
-
-                    return;
-                }
-
-                // =====================================
-                // PvP
-                // =====================================
-
-                if (
-                    interaction.customId ===
-                    'azuria-pvp'
-                ) {
-                    // Já tinha PvP:
-                    // remover o estado.
-                    if (hasPvp) {
-                        await member.roles.remove(
-                            AZURIA_PVP_ROLE_ID,
-                        );
-
-                        await syncAzuriaRole(
-                            member,
-                        );
-
-                        await interaction.editReply(
-                            '⚔️ **Azuria PvP** removido.',
-                        );
-
-                        return;
-                    }
-
-                    // PvP e PvM são exclusivos.
-                    if (hasPvm) {
-                        await member.roles.remove(
-                            AZURIA_PVM_ROLE_ID,
-                        );
-                    }
-
-                    await member.roles.add([
-                        AZURIA_ROLE_ID,
-                        AZURIA_PVP_ROLE_ID,
-                    ]);
-
-                    await syncAzuriaRole(
-                        member,
-                    );
-
-                    await interaction.editReply(
-                        '⚔️ Estado atualizado para **Azuria PvP**.',
-                    );
-
-                    return;
-                }
-            } catch (error) {
-                console.error(
-                    '❌ Erro ao atualizar roles Azuria:',
-                    error,
-                );
-
-                await interaction.editReply(
-                    '❌ Não consegui atualizar as tuas roles. Verifica as permissões e a hierarquia da role do bot.',
-                );
-            }
-
-            return;
-        }
-
-        // =============================================
         // ROSTER PAGINATION
         // =============================================
 
@@ -1433,7 +1774,7 @@ client.on(
         }
 
         // =============================================
-        // SELECT: EDITAR PERSONAGEM
+        // SELECT: EDITAR
         // =============================================
 
         if (
@@ -1511,7 +1852,7 @@ client.on(
         }
 
         // =============================================
-        // SELECT: REMOVER PERSONAGEM
+        // SELECT: REMOVER
         // =============================================
 
         if (

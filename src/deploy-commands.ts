@@ -1,7 +1,6 @@
 import 'dotenv/config';
 
 import {
-    PermissionFlagsBits,
     REST,
     Routes,
     SlashCommandBuilder,
@@ -49,20 +48,6 @@ const commands = [
     new SlashCommandBuilder()
         .setName('roster')
         .setDescription('Mostra o roster atual da guild'),
-
-    new SlashCommandBuilder()
-        .setName('azuria')
-        .setDescription('Gestão dos jogadores do Azuria')
-        .setDefaultMemberPermissions(
-            PermissionFlagsBits.ManageGuild,
-        )
-        .addSubcommand(subcommand =>
-            subcommand
-                .setName('painel')
-                .setDescription(
-                    'Publica o painel de seleção de estado do Azuria',
-                ),
-        ),
 ].map(command => command.toJSON());
 
 const rest = new REST({

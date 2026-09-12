@@ -9,13 +9,10 @@ import {
     EmbedBuilder,
     Events,
     GatewayIntentBits,
-    GuildMember,
     LabelBuilder,
-    Message,
     MessageFlags,
     ModalBuilder,
     ModalSubmitInteraction,
-    Partials,
     PermissionFlagsBits,
     StringSelectMenuBuilder,
     TextChannel,
@@ -53,17 +50,11 @@ const AZURIA_PVM_ROLE_ID =
 const AZURIA_CHANNEL_ID =
     '1548265183053357146';
 
-const AZURIA_PVM_EMOJI = '🐉';
-const AZURIA_PVP_EMOJI = '⚔️';
-
 const AZURIA_PANEL_MARKER =
     'Wicked Bot • Azuria Status';
 
 const COMMANDS_HELP_MARKER =
     'Wicked Bot • Commands Help';
-
-let azuriaPanelMessageId: string | null =
-    null;
 
 // =====================================================
 // CLIENT
@@ -73,15 +64,6 @@ const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.GuildMessageReactions,
-    ],
-
-    partials: [
-        Partials.Message,
-        Partials.Channel,
-        Partials.Reaction,
-        Partials.User,
     ],
 });
 
@@ -134,15 +116,22 @@ function buildCharacterModal(
     title: string,
     character?: CharacterData,
 ) {
-    const modal = new ModalBuilder()
-        .setCustomId(customId)
-        .setTitle(title);
+    const modal =
+        new ModalBuilder()
+            .setCustomId(customId)
+            .setTitle(title);
 
     const nameInput =
         new TextInputBuilder()
-            .setCustomId('character-name')
-            .setStyle(TextInputStyle.Short)
-            .setPlaceholder('Ex: PedroWar')
+            .setCustomId(
+                'character-name',
+            )
+            .setStyle(
+                TextInputStyle.Short,
+            )
+            .setPlaceholder(
+                'Ex: PedroWar',
+            )
             .setMinLength(2)
             .setMaxLength(24)
             .setRequired(true);
@@ -155,15 +144,21 @@ function buildCharacterModal(
 
     const nameLabel =
         new LabelBuilder()
-            .setLabel('Nome da personagem')
+            .setLabel(
+                'Nome da personagem',
+            )
             .setDescription(
                 'Nome exato da personagem no Azuria',
             )
-            .setTextInputComponent(nameInput);
+            .setTextInputComponent(
+                nameInput,
+            );
 
     const classSelect =
         new StringSelectMenuBuilder()
-            .setCustomId('character-class')
+            .setCustomId(
+                'character-class',
+            )
             .setPlaceholder(
                 'Seleciona a classe',
             )
@@ -196,8 +191,12 @@ function buildCharacterModal(
 
     const levelInput =
         new TextInputBuilder()
-            .setCustomId('character-level')
-            .setStyle(TextInputStyle.Short)
+            .setCustomId(
+                'character-level',
+            )
+            .setStyle(
+                TextInputStyle.Short,
+            )
             .setPlaceholder('Ex: 120')
             .setMinLength(1)
             .setMaxLength(3)
@@ -218,7 +217,9 @@ function buildCharacterModal(
 
     const mainSelect =
         new StringSelectMenuBuilder()
-            .setCustomId('character-main')
+            .setCustomId(
+                'character-main',
+            )
             .setPlaceholder(
                 'É a tua personagem principal?',
             )
@@ -269,7 +270,8 @@ function buildCharacterModal(
 }
 
 function readCharacterModal(
-    interaction: ModalSubmitInteraction,
+    interaction:
+        ModalSubmitInteraction,
 ) {
     const characterName =
         interaction.fields
@@ -357,16 +359,19 @@ function buildCharacterSelect(
                                 character.is_main
                                     ? '⭐ '
                                     : ''
-                            }` +
-                            character.character_name,
+                            }${
+                                character
+                                    .character_name
+                            }`,
 
                         description:
                             `${character.character_class} • ` +
                             `Lv. ${character.level}`,
 
-                        value: String(
-                            character.id,
-                        ),
+                        value:
+                            String(
+                                character.id,
+                            ),
                     }),
                 ),
             );
@@ -376,35 +381,81 @@ function buildCharacterSelect(
 }
 
 // =====================================================
-// AZURIA HELPERS
+// AZURIA PANEL
 // =====================================================
 
 function buildAzuriaEmbed() {
     return new EmbedBuilder()
-        .setTitle('⚔️ Estado no Azuria')
+        .setTitle(
+            '⚔️ Estado no Azuria',
+        )
         .setDescription(
             [
-                'Seleciona o teu estado atual no servidor através das reações abaixo.',
+                'Seleciona o teu estado atual no servidor.',
                 '',
-                `${AZURIA_PVM_EMOJI} **PvM** — Estás a jogar no Azuria, mas ainda estás em progressão PvM.`,
+                '🐉 **PvM** — Estás a jogar no Azuria, mas ainda estás em progressão PvM.',
                 '',
-                `${AZURIA_PVP_EMOJI} **PvP** — Já estás preparado para PvP.`,
+                '⚔️ **PvP** — Já estás preparado para PvP.',
                 '',
                 '**Só podes ter um dos dois estados.**',
                 '',
-                'A role **Azuria** é atribuída automaticamente a todos os jogadores que selecionem PvM ou PvP.',
+                'A role **Azuria** é atribuída automaticamente.',
                 '',
-                'Para deixares de estar marcado como jogador de Azuria, remove a tua reação.',
+                'Se deixares de jogar no servidor, usa **Sair do Azuria**.',
             ].join('\n'),
         )
         .setFooter({
-            text: AZURIA_PANEL_MARKER,
+            text:
+                AZURIA_PANEL_MARKER,
         });
 }
 
+function buildAzuriaButtons() {
+    return new ActionRowBuilder<ButtonBuilder>()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId(
+                    'azuria-pvm',
+                )
+                .setLabel('PvM')
+                .setEmoji('🐉')
+                .setStyle(
+                    ButtonStyle.Secondary,
+                ),
+
+            new ButtonBuilder()
+                .setCustomId(
+                    'azuria-pvp',
+                )
+                .setLabel('PvP')
+                .setEmoji('⚔️')
+                .setStyle(
+                    ButtonStyle.Primary,
+                ),
+
+            new ButtonBuilder()
+                .setCustomId(
+                    'azuria-leave',
+                )
+                .setLabel(
+                    'Sair do Azuria',
+                )
+                .setEmoji('❌')
+                .setStyle(
+                    ButtonStyle.Danger,
+                ),
+        );
+}
+
+// =====================================================
+// COMMANDS HELP
+// =====================================================
+
 function buildCommandsHelpEmbed() {
     return new EmbedBuilder()
-        .setTitle('📖 Como usar o Wicked Bot')
+        .setTitle(
+            '📖 Como usar o Wicked Bot',
+        )
         .setDescription(
             [
                 'Usa os comandos abaixo para gerir as tuas personagens e consultar o roster da guild.',
@@ -433,54 +484,145 @@ function buildCommandsHelpEmbed() {
                 '',
                 '### 🐉 Estado no Azuria',
                 '',
-                'Usa as reações da mensagem acima:',
-                `${AZURIA_PVM_EMOJI} **PvM** — ainda estás em progressão.`,
-                `${AZURIA_PVP_EMOJI} **PvP** — já estás preparado para PvP.`,
+                'Usa os botões da mensagem abaixo para escolher entre **PvM** e **PvP**.',
                 '',
                 'A role **Azuria** é atribuída automaticamente.',
             ].join('\n'),
         )
         .setFooter({
-            text: COMMANDS_HELP_MARKER,
+            text:
+                COMMANDS_HELP_MARKER,
         });
 }
 
-async function syncAzuriaRole(
-    member: GuildMember,
-) {
-    const hasPvm =
-        member.roles.cache.has(
-            AZURIA_PVM_ROLE_ID,
-        );
+// =====================================================
+// ENSURE MESSAGES
+// =====================================================
 
-    const hasPvp =
-        member.roles.cache.has(
-            AZURIA_PVP_ROLE_ID,
+async function ensureCommandsHelpMessage() {
+    const channel =
+        await client.channels.fetch(
+            AZURIA_CHANNEL_ID,
         );
-
-    const hasAzuria =
-        member.roles.cache.has(
-            AZURIA_ROLE_ID,
-        );
-
-    const shouldHaveAzuria =
-        hasPvm || hasPvp;
 
     if (
-        shouldHaveAzuria &&
-        !hasAzuria
+        !channel ||
+        channel.type !==
+            ChannelType.GuildText
     ) {
-        await member.roles.add(
-            AZURIA_ROLE_ID,
+        throw new Error(
+            `O canal ${AZURIA_CHANNEL_ID} não existe ou não é um canal de texto.`,
         );
     }
 
+    const textChannel =
+        channel as TextChannel;
+
+    const messages =
+        await textChannel.messages.fetch({
+            limit: 100,
+        });
+
+    let helpMessage =
+        messages.find(
+            message =>
+                message.author.id ===
+                    client.user?.id &&
+                message.embeds.some(
+                    embed =>
+                        embed.footer
+                            ?.text ===
+                        COMMANDS_HELP_MARKER,
+                ),
+        );
+
+    if (!helpMessage) {
+        helpMessage =
+            await textChannel.send({
+                embeds: [
+                    buildCommandsHelpEmbed(),
+                ],
+            });
+
+        console.log(
+            '✅ Mensagem de ajuda criada.',
+        );
+    } else {
+        await helpMessage.edit({
+            embeds: [
+                buildCommandsHelpEmbed(),
+            ],
+        });
+
+        console.log(
+            '✅ Mensagem de ajuda atualizada.',
+        );
+    }
+}
+
+async function ensureAzuriaPanel() {
+    const channel =
+        await client.channels.fetch(
+            AZURIA_CHANNEL_ID,
+        );
+
     if (
-        !shouldHaveAzuria &&
-        hasAzuria
+        !channel ||
+        channel.type !==
+            ChannelType.GuildText
     ) {
-        await member.roles.remove(
-            AZURIA_ROLE_ID,
+        throw new Error(
+            `O canal ${AZURIA_CHANNEL_ID} não existe ou não é um canal de texto.`,
+        );
+    }
+
+    const textChannel =
+        channel as TextChannel;
+
+    const messages =
+        await textChannel.messages.fetch({
+            limit: 100,
+        });
+
+    let panelMessage =
+        messages.find(
+            message =>
+                message.author.id ===
+                    client.user?.id &&
+                message.embeds.some(
+                    embed =>
+                        embed.footer
+                            ?.text ===
+                        AZURIA_PANEL_MARKER,
+                ),
+        );
+
+    if (!panelMessage) {
+        panelMessage =
+            await textChannel.send({
+                embeds: [
+                    buildAzuriaEmbed(),
+                ],
+                components: [
+                    buildAzuriaButtons(),
+                ],
+            });
+
+        console.log(
+            '✅ Painel Azuria criado.',
+        );
+    } else {
+        await panelMessage.edit({
+            embeds: [
+                buildAzuriaEmbed(),
+            ],
+            components: [
+                buildAzuriaButtons(),
+            ],
+        });
+
+        console.log(
+            '✅ Painel Azuria atualizado.',
         );
     }
 }
@@ -513,7 +655,7 @@ async function logBotPermissionDiagnostics() {
                 ChannelType.GuildText
         ) {
             console.log(
-                `❌ O canal ${AZURIA_CHANNEL_ID} não foi encontrado ou não é um canal de texto.`,
+                `❌ Canal ${AZURIA_CHANNEL_ID} inválido.`,
             );
 
             return;
@@ -535,150 +677,67 @@ async function logBotPermissionDiagnostics() {
         console.log(
             '------------------------------------------------------------',
         );
+
         console.log(
             `User: ${botMember.user.tag}`,
         );
+
         console.log(
             `User ID: ${botMember.id}`,
         );
+
         console.log(
             `Guild: ${guild.name}`,
         );
-        console.log(
-            `Guild ID: ${guild.id}`,
-        );
-
-        console.log('');
-        console.log('🏷️ ROLES DO BOT');
-        console.log(
-            '------------------------------------------------------------',
-        );
-
-        const botRoles =
-            [
-                ...botMember.roles.cache.values(),
-            ].sort(
-                (a, b) =>
-                    b.position -
-                    a.position,
-            );
-
-        for (const role of botRoles) {
-            console.log('');
-            console.log(
-                `Role: ${role.name}`,
-            );
-            console.log(
-                `ID: ${role.id}`,
-            );
-            console.log(
-                `Position: ${role.position}`,
-            );
-            console.log(
-                `Managed: ${role.managed}`,
-            );
-
-            const permissions =
-                role.permissions.toArray();
-
-            console.log(
-                `Permissions (${permissions.length}):`,
-            );
-
-            if (
-                permissions.length === 0
-            ) {
-                console.log(
-                    '  - nenhuma',
-                );
-            } else {
-                for (
-                    const permission
-                    of permissions
-                ) {
-                    console.log(
-                        `  - ${permission}`,
-                    );
-                }
-            }
-        }
 
         console.log('');
         console.log(
-            '🌐 PERMISSÕES EFETIVAS NO SERVIDOR',
+            '🧪 CHECKS IMPORTANTES',
         );
         console.log(
             '------------------------------------------------------------',
         );
 
-        const guildPermissions =
-            botMember.permissions
-                .toArray()
-                .sort();
-
-        for (
-            const permission
-            of guildPermissions
-        ) {
-            console.log(
-                `✅ ${permission}`,
-            );
-        }
-
-        console.log('');
-        console.log(
-            '🧪 CHECKS IMPORTANTES — SERVIDOR',
-        );
-        console.log(
-            '------------------------------------------------------------',
-        );
-
-        const guildChecks = [
+        const checks = [
             {
                 name: 'Administrator',
                 permission:
-                    PermissionFlagsBits.Administrator,
+                    PermissionFlagsBits
+                        .Administrator,
             },
             {
                 name: 'ManageRoles',
                 permission:
-                    PermissionFlagsBits.ManageRoles,
+                    PermissionFlagsBits
+                        .ManageRoles,
             },
             {
                 name: 'ManageMessages',
                 permission:
-                    PermissionFlagsBits.ManageMessages,
+                    PermissionFlagsBits
+                        .ManageMessages,
             },
             {
                 name: 'ViewChannel',
                 permission:
-                    PermissionFlagsBits.ViewChannel,
+                    PermissionFlagsBits
+                        .ViewChannel,
             },
             {
                 name: 'SendMessages',
                 permission:
-                    PermissionFlagsBits.SendMessages,
+                    PermissionFlagsBits
+                        .SendMessages,
             },
             {
                 name: 'EmbedLinks',
                 permission:
-                    PermissionFlagsBits.EmbedLinks,
-            },
-            {
-                name: 'AddReactions',
-                permission:
-                    PermissionFlagsBits.AddReactions,
-            },
-            {
-                name: 'ReadMessageHistory',
-                permission:
-                    PermissionFlagsBits.ReadMessageHistory,
+                    PermissionFlagsBits
+                        .EmbedLinks,
             },
         ];
 
-        for (
-            const check of guildChecks
-        ) {
+        for (const check of checks) {
             console.log(
                 `${
                     botMember.permissions.has(
@@ -692,108 +751,6 @@ async function logBotPermissionDiagnostics() {
 
         console.log('');
         console.log(
-            `💬 CANAL #${textChannel.name}`,
-        );
-        console.log(
-            '------------------------------------------------------------',
-        );
-        console.log(
-            `Channel ID: ${textChannel.id}`,
-        );
-
-        const channelPermissions =
-            textChannel.permissionsFor(
-                botMember,
-            );
-
-        if (!channelPermissions) {
-            console.log(
-                '❌ Não foi possível calcular as permissões efetivas do canal.',
-            );
-        } else {
-            console.log('');
-            console.log(
-                'Permissões efetivas no canal:',
-            );
-
-            const permissionNames =
-                channelPermissions
-                    .toArray()
-                    .sort();
-
-            for (
-                const permission
-                of permissionNames
-            ) {
-                console.log(
-                    `✅ ${permission}`,
-                );
-            }
-
-            console.log('');
-            console.log(
-                '🧪 CHECKS IMPORTANTES — CANAL',
-            );
-            console.log(
-                '------------------------------------------------------------',
-            );
-
-            const channelChecks = [
-                {
-                    name: 'ViewChannel',
-                    permission:
-                        PermissionFlagsBits.ViewChannel,
-                },
-                {
-                    name: 'SendMessages',
-                    permission:
-                        PermissionFlagsBits.SendMessages,
-                },
-                {
-                    name: 'EmbedLinks',
-                    permission:
-                        PermissionFlagsBits.EmbedLinks,
-                },
-                {
-                    name: 'AddReactions',
-                    permission:
-                        PermissionFlagsBits.AddReactions,
-                },
-                {
-                    name: 'ReadMessageHistory',
-                    permission:
-                        PermissionFlagsBits.ReadMessageHistory,
-                },
-                {
-                    name: 'ManageMessages',
-                    permission:
-                        PermissionFlagsBits.ManageMessages,
-                },
-                {
-                    name: 'ManageRoles',
-                    permission:
-                        PermissionFlagsBits.ManageRoles,
-                },
-            ];
-
-            for (
-                const check
-                of channelChecks
-            ) {
-                console.log(
-                    `${
-                        channelPermissions.has(
-                            check.permission,
-                        )
-                            ? '✅'
-                            : '❌'
-                    } ${check.name}`,
-                );
-            }
-        }
-
-        console.log('');
-        console.log(
             '📊 HIERARQUIA DE ROLES',
         );
         console.log(
@@ -803,6 +760,7 @@ async function logBotPermissionDiagnostics() {
         console.log(
             `Role mais alta do bot: ${botMember.roles.highest.name}`,
         );
+
         console.log(
             `Position: ${botMember.roles.highest.position}`,
         );
@@ -831,64 +789,28 @@ async function logBotPermissionDiagnostics() {
                     target.id,
                 );
 
-            console.log('');
-
             if (!role) {
                 console.log(
-                    `❌ ${target.label}: ROLE NÃO ENCONTRADA`,
+                    `❌ ${target.label}: não encontrada`,
                 );
 
                 continue;
             }
 
+            console.log('');
             console.log(
-                `Role: ${target.label}`,
+                `${target.label}`,
             );
-            console.log(
-                `ID: ${role.id}`,
-            );
+
             console.log(
                 `Position: ${role.position}`,
             );
+
             console.log(
-                `Editable pelo bot: ${
+                `Editable: ${
                     role.editable
                         ? '✅ SIM'
                         : '❌ NÃO'
-                }`,
-            );
-        }
-
-        console.log('');
-        console.log('📋 RESUMO');
-        console.log(
-            '------------------------------------------------------------',
-        );
-
-        console.log(
-            `Manage Roles: ${
-                botMember.permissions.has(
-                    PermissionFlagsBits.ManageRoles,
-                )
-                    ? '✅'
-                    : '❌'
-            }`,
-        );
-
-        for (
-            const target
-            of targetRoles
-        ) {
-            const role =
-                guild.roles.cache.get(
-                    target.id,
-                );
-
-            console.log(
-                `${target.label}: ${
-                    role?.editable
-                        ? '✅ bot consegue gerir'
-                        : '❌ bot NÃO consegue gerir'
                 }`,
             );
         }
@@ -906,323 +828,14 @@ async function logBotPermissionDiagnostics() {
         console.log('');
     } catch (error) {
         console.error(
-            '❌ Erro ao gerar diagnóstico de permissões:',
+            '❌ Erro no diagnóstico:',
             error,
         );
     }
 }
 
 // =====================================================
-// AZURIA RECONCILIATION
-// =====================================================
-
-async function reconcileAzuriaPanel(
-    message: Message<true>,
-) {
-    console.log(
-        '⏳ A sincronizar reactions do Azuria...',
-    );
-
-    const pvmReaction =
-        message.reactions.cache.find(
-            reaction =>
-                reaction.emoji.name ===
-                AZURIA_PVM_EMOJI,
-        );
-
-    const pvpReaction =
-        message.reactions.cache.find(
-            reaction =>
-                reaction.emoji.name ===
-                AZURIA_PVP_EMOJI,
-        );
-
-    const pvmUserIds =
-        new Set<string>();
-
-    const pvpUserIds =
-        new Set<string>();
-
-    if (pvmReaction) {
-        const users =
-            await pvmReaction.users.fetch();
-
-        for (const user of users.values()) {
-            if (!user.bot) {
-                pvmUserIds.add(
-                    user.id,
-                );
-            }
-        }
-    }
-
-    if (pvpReaction) {
-        const users =
-            await pvpReaction.users.fetch();
-
-        for (const user of users.values()) {
-            if (!user.bot) {
-                pvpUserIds.add(
-                    user.id,
-                );
-            }
-        }
-    }
-
-    const guildMembers =
-        await message.guild.members.fetch();
-
-    for (
-        const member
-        of guildMembers.values()
-    ) {
-        if (member.user.bot) {
-            continue;
-        }
-
-        const hasPvmReaction =
-            pvmUserIds.has(
-                member.id,
-            );
-
-        const hasPvpReaction =
-            pvpUserIds.has(
-                member.id,
-            );
-
-        try {
-            if (hasPvpReaction) {
-                await member.roles.remove(
-                    AZURIA_PVM_ROLE_ID,
-                );
-
-                await member.roles.add([
-                    AZURIA_ROLE_ID,
-                    AZURIA_PVP_ROLE_ID,
-                ]);
-
-                if (
-                    hasPvmReaction &&
-                    pvmReaction
-                ) {
-                    await pvmReaction.users
-                        .remove(
-                            member.id,
-                        )
-                        .catch(
-                            () => {},
-                        );
-                }
-
-                continue;
-            }
-
-            if (hasPvmReaction) {
-                await member.roles.remove(
-                    AZURIA_PVP_ROLE_ID,
-                );
-
-                await member.roles.add([
-                    AZURIA_ROLE_ID,
-                    AZURIA_PVM_ROLE_ID,
-                ]);
-
-                continue;
-            }
-
-            const hasAnyAzuriaRole =
-                member.roles.cache.has(
-                    AZURIA_ROLE_ID,
-                ) ||
-                member.roles.cache.has(
-                    AZURIA_PVM_ROLE_ID,
-                ) ||
-                member.roles.cache.has(
-                    AZURIA_PVP_ROLE_ID,
-                );
-
-            if (hasAnyAzuriaRole) {
-                await member.roles.remove([
-                    AZURIA_ROLE_ID,
-                    AZURIA_PVM_ROLE_ID,
-                    AZURIA_PVP_ROLE_ID,
-                ]);
-            }
-        } catch (error) {
-            console.error(
-                `❌ Erro ao sincronizar Azuria para ${member.user.username}:`,
-                error,
-            );
-        }
-    }
-
-    console.log(
-        '✅ Reactions do Azuria sincronizadas.',
-    );
-}
-
-// =====================================================
-// AZURIA PANEL
-// =====================================================
-
-async function ensureAzuriaPanel() {
-    const channel =
-        await client.channels.fetch(
-            AZURIA_CHANNEL_ID,
-        );
-
-    if (
-        !channel ||
-        channel.type !==
-            ChannelType.GuildText
-    ) {
-        throw new Error(
-            `O canal Azuria (${AZURIA_CHANNEL_ID}) não existe ou não é um canal de texto.`,
-        );
-    }
-
-    const textChannel =
-        channel as TextChannel;
-
-    const messages =
-        await textChannel.messages.fetch({
-            limit: 100,
-        });
-
-    let panelMessage =
-        messages.find(message => {
-            if (
-                message.author.id !==
-                client.user?.id
-            ) {
-                return false;
-            }
-
-            return message.embeds.some(
-                embed =>
-                    embed.footer?.text ===
-                    AZURIA_PANEL_MARKER,
-            );
-        });
-
-    if (!panelMessage) {
-        panelMessage =
-            await textChannel.send({
-                embeds: [
-                    buildAzuriaEmbed(),
-                ],
-            });
-
-        console.log(
-            '✅ Painel Azuria criado.',
-        );
-    } else {
-        await panelMessage.edit({
-            embeds: [
-                buildAzuriaEmbed(),
-            ],
-        });
-
-        console.log(
-            '✅ Painel Azuria encontrado.',
-        );
-    }
-
-    azuriaPanelMessageId =
-        panelMessage.id;
-
-    await panelMessage.react(
-        AZURIA_PVM_EMOJI,
-    );
-
-    await panelMessage.react(
-        AZURIA_PVP_EMOJI,
-    );
-
-    console.log(
-        '✅ Reactions 🐉 e ⚔️ configuradas.',
-    );
-
-    const freshMessage =
-        await textChannel.messages.fetch(
-            panelMessage.id,
-        );
-
-    await reconcileAzuriaPanel(
-        freshMessage,
-    );
-}
-
-// =====================================================
-// COMMANDS HELP MESSAGE
-// =====================================================
-
-async function ensureCommandsHelpMessage() {
-    const channel =
-        await client.channels.fetch(
-            AZURIA_CHANNEL_ID,
-        );
-
-    if (
-        !channel ||
-        channel.type !==
-            ChannelType.GuildText
-    ) {
-        throw new Error(
-            `O canal ${AZURIA_CHANNEL_ID} não existe ou não é um canal de texto.`,
-        );
-    }
-
-    const textChannel =
-        channel as TextChannel;
-
-    const messages =
-        await textChannel.messages.fetch({
-            limit: 100,
-        });
-
-    let helpMessage =
-        messages.find(message => {
-            if (
-                message.author.id !==
-                client.user?.id
-            ) {
-                return false;
-            }
-
-            return message.embeds.some(
-                embed =>
-                    embed.footer?.text ===
-                    COMMANDS_HELP_MARKER,
-            );
-        });
-
-    if (!helpMessage) {
-        helpMessage =
-            await textChannel.send({
-                embeds: [
-                    buildCommandsHelpEmbed(),
-                ],
-            });
-
-        console.log(
-            '✅ Mensagem de ajuda dos comandos criada.',
-        );
-    } else {
-        await helpMessage.edit({
-            embeds: [
-                buildCommandsHelpEmbed(),
-            ],
-        });
-
-        console.log(
-            '✅ Mensagem de ajuda dos comandos atualizada.',
-        );
-    }
-}
-
-// =====================================================
-// ROSTER HELPERS
+// ROSTER
 // =====================================================
 
 async function getRosterMembers():
@@ -1232,26 +845,20 @@ async function getRosterMembers():
             SELECT
                 m.discord_id,
                 m.discord_username,
-
                 c.id,
                 c.character_name,
                 c.character_class,
                 c.level,
                 c.is_main
-
             FROM members m
-
             INNER JOIN characters c
                 ON c.discord_id =
                     m.discord_id
-
             ORDER BY
                 LOWER(
                     m.discord_username
                 ) ASC,
-
                 c.is_main DESC,
-
                 LOWER(
                     c.character_name
                 ) ASC
@@ -1264,7 +871,8 @@ async function getRosterMembers():
         >();
 
     for (
-        const row of result.rows
+        const row
+        of result.rows
     ) {
         let member =
             members.get(
@@ -1279,8 +887,7 @@ async function getRosterMembers():
                 discord_username:
                     row.discord_username,
 
-                azuria_status:
-                    null,
+                azuria_status: null,
 
                 characters: [],
             };
@@ -1422,8 +1029,28 @@ function buildRosterPage(
             .setTimestamp();
 
     for (
-        const member of pageMembers
+        const member
+        of pageMembers
     ) {
+        let statusText =
+            '⚪ Sem estado Azuria';
+
+        if (
+            member.azuria_status ===
+            'pvm'
+        ) {
+            statusText =
+                '🐉 PvM';
+        }
+
+        if (
+            member.azuria_status ===
+            'pvp'
+        ) {
+            statusText =
+                '⚔️ PvP';
+        }
+
         const characterLines =
             member.characters.map(
                 character => {
@@ -1455,25 +1082,6 @@ function buildRosterPage(
                 ) + '...';
         }
 
-        let statusText =
-            '⚪ Sem estado Azuria';
-
-        if (
-            member.azuria_status ===
-            'pvm'
-        ) {
-            statusText =
-                '🐉 PvM';
-        }
-
-        if (
-            member.azuria_status ===
-            'pvp'
-        ) {
-            statusText =
-                '⚔️ PvP';
-        }
-
         embed.addFields({
             name:
                 `👤 ${member.discord_username} — ${statusText}`,
@@ -1494,41 +1102,36 @@ function buildRosterButtons(
     page: number,
     totalPages: number,
 ) {
-    const previous =
-        new ButtonBuilder()
-            .setCustomId(
-                `roster-page:${userId}:${
-                    page - 1
-                }`,
-            )
-            .setLabel('Anterior')
-            .setStyle(
-                ButtonStyle.Secondary,
-            )
-            .setDisabled(
-                page === 0,
-            );
-
-    const next =
-        new ButtonBuilder()
-            .setCustomId(
-                `roster-page:${userId}:${
-                    page + 1
-                }`,
-            )
-            .setLabel('Seguinte')
-            .setStyle(
-                ButtonStyle.Secondary,
-            )
-            .setDisabled(
-                page >=
-                    totalPages - 1,
-            );
-
     return new ActionRowBuilder<ButtonBuilder>()
         .addComponents(
-            previous,
-            next,
+            new ButtonBuilder()
+                .setCustomId(
+                    `roster-page:${userId}:${
+                        page - 1
+                    }`,
+                )
+                .setLabel('Anterior')
+                .setStyle(
+                    ButtonStyle.Secondary,
+                )
+                .setDisabled(
+                    page === 0,
+                ),
+
+            new ButtonBuilder()
+                .setCustomId(
+                    `roster-page:${userId}:${
+                        page + 1
+                    }`,
+                )
+                .setLabel('Seguinte')
+                .setStyle(
+                    ButtonStyle.Secondary,
+                )
+                .setDisabled(
+                    page >=
+                        totalPages - 1,
+                ),
         );
 }
 
@@ -1556,7 +1159,7 @@ client.once(
             );
         } catch (error) {
             console.error(
-                '❌ Não foi possível ligar ao PostgreSQL:',
+                '❌ PostgreSQL:',
                 error,
             );
         }
@@ -1564,263 +1167,14 @@ client.once(
         await logBotPermissionDiagnostics();
 
         try {
-			await ensureCommandsHelpMessage();
-			await ensureAzuriaPanel();
-		} catch (error) {
-			console.error(
-				'❌ Não foi possível configurar as mensagens do canal:',
-				error,
-		);
-}
-    },
-);
-
-// =====================================================
-// AZURIA REACTION ADD
-// =====================================================
-
-client.on(
-    Events.MessageReactionAdd,
-
-    async (reaction, user) => {
-        try {
-            if (reaction.partial) {
-                await reaction.fetch();
-            }
-
-            const fullUser =
-                user.partial
-                    ? await user.fetch()
-                    : user;
-
-            if (fullUser.bot) {
-                return;
-            }
-
-            if (
-                reaction.message.id !==
-                    azuriaPanelMessageId ||
-                reaction.message.channelId !==
-                    AZURIA_CHANNEL_ID
-            ) {
-                return;
-            }
-
-            const emoji =
-                reaction.emoji.name;
-
-            if (
-                emoji !==
-                    AZURIA_PVM_EMOJI &&
-                emoji !==
-                    AZURIA_PVP_EMOJI
-            ) {
-                return;
-            }
-
-            const guild =
-                reaction.message.guild;
-
-            if (!guild) {
-                return;
-            }
-
-            const member =
-                await guild.members.fetch(
-                    fullUser.id,
-                );
-
-            if (
-                emoji ===
-                AZURIA_PVM_EMOJI
-            ) {
-                await member.roles.remove(
-                    AZURIA_PVP_ROLE_ID,
-                );
-
-                await member.roles.add([
-                    AZURIA_ROLE_ID,
-                    AZURIA_PVM_ROLE_ID,
-                ]);
-
-                const pvpReaction =
-                    reaction.message
-                        .reactions.cache
-                        .find(
-                            item =>
-                                item.emoji.name ===
-                                AZURIA_PVP_EMOJI,
-                        );
-
-                if (pvpReaction) {
-                    await pvpReaction.users
-                        .remove(
-                            fullUser.id,
-                        )
-                        .catch(
-                            error => {
-                                console.error(
-                                    `⚠️ Não consegui remover reação PvP de ${fullUser.username}:`,
-                                    error,
-                                );
-                            },
-                        );
-                }
-
-                console.log(
-                    `🐉 ${fullUser.username} → Azuria PvM`,
-                );
-
-                return;
-            }
-
-            if (
-                emoji ===
-                AZURIA_PVP_EMOJI
-            ) {
-                await member.roles.remove(
-                    AZURIA_PVM_ROLE_ID,
-                );
-
-                await member.roles.add([
-                    AZURIA_ROLE_ID,
-                    AZURIA_PVP_ROLE_ID,
-                ]);
-
-                const pvmReaction =
-                    reaction.message
-                        .reactions.cache
-                        .find(
-                            item =>
-                                item.emoji.name ===
-                                AZURIA_PVM_EMOJI,
-                        );
-
-                if (pvmReaction) {
-                    await pvmReaction.users
-                        .remove(
-                            fullUser.id,
-                        )
-                        .catch(
-                            error => {
-                                console.error(
-                                    `⚠️ Não consegui remover reação PvM de ${fullUser.username}:`,
-                                    error,
-                                );
-                            },
-                        );
-                }
-
-                console.log(
-                    `⚔️ ${fullUser.username} → Azuria PvP`,
-                );
-
-                return;
-            }
+            // Esta ordem garante:
+            // ajuda em cima
+            // painel Azuria por baixo
+            await ensureCommandsHelpMessage();
+            await ensureAzuriaPanel();
         } catch (error) {
             console.error(
-                '❌ Erro ao processar reaction Azuria:',
-                error,
-            );
-        }
-    },
-);
-
-// =====================================================
-// AZURIA REACTION REMOVE
-// =====================================================
-
-client.on(
-    Events.MessageReactionRemove,
-
-    async (reaction, user) => {
-        try {
-            if (reaction.partial) {
-                await reaction.fetch();
-            }
-
-            const fullUser =
-                user.partial
-                    ? await user.fetch()
-                    : user;
-
-            if (fullUser.bot) {
-                return;
-            }
-
-            if (
-                reaction.message.id !==
-                    azuriaPanelMessageId ||
-                reaction.message.channelId !==
-                    AZURIA_CHANNEL_ID
-            ) {
-                return;
-            }
-
-            const emoji =
-                reaction.emoji.name;
-
-            if (
-                emoji !==
-                    AZURIA_PVM_EMOJI &&
-                emoji !==
-                    AZURIA_PVP_EMOJI
-            ) {
-                return;
-            }
-
-            const guild =
-                reaction.message.guild;
-
-            if (!guild) {
-                return;
-            }
-
-            const member =
-                await guild.members.fetch(
-                    fullUser.id,
-                );
-
-            if (
-                emoji ===
-                AZURIA_PVM_EMOJI
-            ) {
-                await member.roles.remove(
-                    AZURIA_PVM_ROLE_ID,
-                );
-
-                await syncAzuriaRole(
-                    member,
-                );
-
-                console.log(
-                    `➖ ${fullUser.username} removeu Azuria PvM`,
-                );
-
-                return;
-            }
-
-            if (
-                emoji ===
-                AZURIA_PVP_EMOJI
-            ) {
-                await member.roles.remove(
-                    AZURIA_PVP_ROLE_ID,
-                );
-
-                await syncAzuriaRole(
-                    member,
-                );
-
-                console.log(
-                    `➖ ${fullUser.username} removeu Azuria PvP`,
-                );
-
-                return;
-            }
-        } catch (error) {
-            console.error(
-                '❌ Erro ao processar remoção de reaction Azuria:',
+                '❌ Erro ao configurar mensagens:',
                 error,
             );
         }
@@ -1836,6 +1190,152 @@ client.on(
     async interaction => {
 
         // =============================================
+        // AZURIA BUTTONS
+        // =============================================
+
+        if (
+            interaction.isButton() &&
+            (
+                interaction.customId ===
+                    'azuria-pvm' ||
+                interaction.customId ===
+                    'azuria-pvp' ||
+                interaction.customId ===
+                    'azuria-leave'
+            )
+        ) {
+            if (!interaction.guild) {
+                return;
+            }
+
+            await interaction.deferReply({
+                flags:
+                    MessageFlags.Ephemeral,
+            });
+
+            try {
+                const member =
+                    await interaction.guild
+                        .members.fetch(
+                            interaction
+                                .user.id,
+                        );
+
+                // =====================================
+                // PvM
+                // =====================================
+
+                if (
+                    interaction.customId ===
+                    'azuria-pvm'
+                ) {
+                    await member.roles.remove(
+                        AZURIA_PVP_ROLE_ID,
+                    );
+
+                    await member.roles.add([
+                        AZURIA_ROLE_ID,
+                        AZURIA_PVM_ROLE_ID,
+                    ]);
+
+                    await interaction.editReply({
+                        content: [
+                            '✅ **Estado atualizado para PvM.**',
+                            '',
+                            'Roles atribuídas:',
+                            '- `Azuria`',
+                            '- `Azuria PvM`',
+                        ].join('\n'),
+                    });
+
+                    console.log(
+                        `🐉 ${interaction.user.username} → Azuria PvM`,
+                    );
+
+                    return;
+                }
+
+                // =====================================
+                // PvP
+                // =====================================
+
+                if (
+                    interaction.customId ===
+                    'azuria-pvp'
+                ) {
+                    await member.roles.remove(
+                        AZURIA_PVM_ROLE_ID,
+                    );
+
+                    await member.roles.add([
+                        AZURIA_ROLE_ID,
+                        AZURIA_PVP_ROLE_ID,
+                    ]);
+
+                    await interaction.editReply({
+                        content: [
+                            '✅ **Estado atualizado para PvP.**',
+                            '',
+                            'Roles atribuídas:',
+                            '- `Azuria`',
+                            '- `Azuria PvP`',
+                        ].join('\n'),
+                    });
+
+                    console.log(
+                        `⚔️ ${interaction.user.username} → Azuria PvP`,
+                    );
+
+                    return;
+                }
+
+                // =====================================
+                // SAIR DO AZURIA
+                // =====================================
+
+                if (
+                    interaction.customId ===
+                    'azuria-leave'
+                ) {
+                    await member.roles.remove([
+                        AZURIA_ROLE_ID,
+                        AZURIA_PVM_ROLE_ID,
+                        AZURIA_PVP_ROLE_ID,
+                    ]);
+
+                    await interaction.editReply({
+                        content: [
+                            '✅ **Estado Azuria removido.**',
+                            '',
+                            'Foram removidas:',
+                            '- `Azuria`',
+                            '- `Azuria PvM`',
+                            '- `Azuria PvP`',
+                        ].join('\n'),
+                    });
+
+                    console.log(
+                        `❌ ${interaction.user.username} saiu do Azuria`,
+                    );
+
+                    return;
+                }
+            } catch (error) {
+                console.error(
+                    '❌ Erro ao alterar roles Azuria:',
+                    error,
+                );
+
+                await interaction.editReply({
+                    content:
+                        '❌ Não foi possível atualizar as tuas roles.',
+                });
+            }
+
+            return;
+        }
+
+        // =============================================
         // SLASH COMMANDS
         // =============================================
 
@@ -1843,9 +1343,9 @@ client.on(
             interaction.isChatInputCommand()
         ) {
 
-            // -----------------------------------------
+            // =========================================
             // /ping
-            // -----------------------------------------
+            // =========================================
 
             if (
                 interaction.commandName ===
@@ -1858,9 +1358,9 @@ client.on(
                 return;
             }
 
-            // -----------------------------------------
+            // =========================================
             // /roster
-            // -----------------------------------------
+            // =========================================
 
             if (
                 interaction.commandName ===
@@ -1873,8 +1373,7 @@ client.on(
                         await getRosterMembers();
 
                     if (
-                        members.length ===
-                        0
+                        members.length === 0
                     ) {
                         await interaction.editReply(
                             'Ainda não existem personagens registadas no roster.',
@@ -1913,7 +1412,7 @@ client.on(
                     });
                 } catch (error) {
                     console.error(
-                        '❌ Erro ao gerar roster:',
+                        '❌ Erro roster:',
                         error,
                     );
 
@@ -1925,9 +1424,9 @@ client.on(
                 return;
             }
 
-            // -----------------------------------------
+            // =========================================
             // /perfil
-            // -----------------------------------------
+            // =========================================
 
             if (
                 interaction.commandName !==
@@ -1941,7 +1440,7 @@ client.on(
                     .getSubcommand();
 
             // =========================================
-            // /perfil adicionar
+            // ADICIONAR
             // =========================================
 
             if (
@@ -1959,7 +1458,7 @@ client.on(
             }
 
             // =========================================
-            // /perfil listar
+            // LISTAR
             // =========================================
 
             if (
@@ -2043,7 +1542,7 @@ client.on(
                     );
                 } catch (error) {
                     console.error(
-                        '❌ Erro ao listar personagens:',
+                        '❌ Erro ao listar:',
                         error,
                     );
 
@@ -2056,7 +1555,7 @@ client.on(
             }
 
             // =========================================
-            // /perfil editar
+            // EDITAR
             // =========================================
 
             if (
@@ -2139,7 +1638,7 @@ client.on(
             }
 
             // =========================================
-            // /perfil remover
+            // REMOVER
             // =========================================
 
             if (
@@ -2261,23 +1760,6 @@ client.on(
                 const members =
                     await getRosterMembers();
 
-                if (
-                    members.length === 0
-                ) {
-                    await interaction.editReply({
-                        content:
-                            'Ainda não existem personagens registadas no roster.',
-
-                        embeds: [],
-                        components: [],
-                    });
-
-                    return;
-                }
-
-                const requestedPage =
-                    Number(pageText);
-
                 const {
                     embed,
                     page,
@@ -2285,12 +1767,10 @@ client.on(
                 } =
                     buildRosterPage(
                         members,
-                        requestedPage,
+                        Number(pageText),
                     );
 
                 await interaction.editReply({
-                    content: null,
-
                     embeds: [embed],
 
                     components:
@@ -2306,7 +1786,7 @@ client.on(
                 });
             } catch (error) {
                 console.error(
-                    '❌ Erro ao mudar página do roster:',
+                    '❌ Erro paginação roster:',
                     error,
                 );
             }
@@ -2315,7 +1795,7 @@ client.on(
         }
 
         // =============================================
-        // SELECT: EDITAR
+        // SELECT EDITAR
         // =============================================
 
         if (
@@ -2326,74 +1806,56 @@ client.on(
             const characterId =
                 interaction.values[0];
 
-            try {
-                const result =
-                    await db.query(
-                        `
-                        SELECT
-                            id,
-                            character_name,
-                            character_class,
-                            level,
-                            is_main
+            const result =
+                await db.query(
+                    `
+                    SELECT
+                        id,
+                        character_name,
+                        character_class,
+                        level,
+                        is_main
 
-                        FROM characters
+                    FROM characters
 
-                        WHERE
-                            id = $1
-                            AND discord_id = $2
-                        `,
-                        [
-                            characterId,
-                            interaction.user.id,
-                        ],
-                    );
-
-                if (
-                    result.rows
-                        .length === 0
-                ) {
-                    await interaction.reply({
-                        content:
-                            '❌ Essa personagem já não existe.',
-
-                        flags:
-                            MessageFlags.Ephemeral,
-                    });
-
-                    return;
-                }
-
-                const character =
-                    result.rows[0];
-
-                await interaction.showModal(
-                    buildCharacterModal(
-                        `perfil-edit-modal:${character.id}`,
-                        'Editar personagem',
-                        character,
-                    ),
-                );
-            } catch (error) {
-                console.error(
-                    '❌ Erro ao abrir edição:',
-                    error,
+                    WHERE
+                        id = $1
+                        AND discord_id = $2
+                    `,
+                    [
+                        characterId,
+                        interaction.user.id,
+                    ],
                 );
 
+            if (
+                result.rows.length ===
+                0
+            ) {
                 await interaction.reply({
                     content:
-                        '❌ Ocorreu um erro ao carregar a personagem.',
+                        '❌ Essa personagem já não existe.',
 
                     flags:
                         MessageFlags.Ephemeral,
                 });
+
+                return;
             }
+
+            await interaction.showModal(
+                buildCharacterModal(
+                    `perfil-edit-modal:${characterId}`,
+                    'Editar personagem',
+                    result.rows[0],
+                ),
+            );
 
             return;
         }
 
         // =============================================
-        // SELECT: REMOVER
+        // SELECT REMOVER
         // =============================================
 
         if (
@@ -2404,94 +1866,76 @@ client.on(
             const characterId =
                 interaction.values[0];
 
-            try {
-                const result =
-                    await db.query(
-                        `
-                        SELECT
-                            id,
-                            character_name,
-                            character_class,
-                            level,
-                            is_main
+            const result =
+                await db.query(
+                    `
+                    SELECT
+                        id,
+                        character_name
 
-                        FROM characters
+                    FROM characters
 
-                        WHERE
-                            id = $1
-                            AND discord_id = $2
-                        `,
-                        [
-                            characterId,
-                            interaction.user.id,
-                        ],
-                    );
-
-                if (
-                    result.rows
-                        .length === 0
-                ) {
-                    await interaction.update({
-                        content:
-                            '❌ Essa personagem já não existe.',
-
-                        components: [],
-                    });
-
-                    return;
-                }
-
-                const character =
-                    result.rows[0];
-
-                const buttons =
-                    new ActionRowBuilder<ButtonBuilder>()
-                        .addComponents(
-                            new ButtonBuilder()
-                                .setCustomId(
-                                    `perfil-remove-confirm:${character.id}`,
-                                )
-                                .setLabel(
-                                    'Remover',
-                                )
-                                .setStyle(
-                                    ButtonStyle.Danger,
-                                ),
-
-                            new ButtonBuilder()
-                                .setCustomId(
-                                    'perfil-remove-cancel',
-                                )
-                                .setLabel(
-                                    'Cancelar',
-                                )
-                                .setStyle(
-                                    ButtonStyle.Secondary,
-                                ),
-                        );
-
-                await interaction.update({
-                    content:
-                        `⚠️ Tens a certeza de que queres remover ` +
-                        `**${character.character_name}**?`,
-
-                    components: [
-                        buttons,
+                    WHERE
+                        id = $1
+                        AND discord_id = $2
+                    `,
+                    [
+                        characterId,
+                        interaction.user.id,
                     ],
-                });
-            } catch (error) {
-                console.error(
-                    '❌ Erro ao preparar remoção:',
-                    error,
                 );
 
+            if (
+                result.rows.length ===
+                0
+            ) {
                 await interaction.update({
                     content:
-                        '❌ Ocorreu um erro ao carregar a personagem.',
+                        '❌ Essa personagem já não existe.',
 
                     components: [],
                 });
+
+                return;
             }
+
+            const character =
+                result.rows[0];
+
+            const buttons =
+                new ActionRowBuilder<ButtonBuilder>()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId(
+                                `perfil-remove-confirm:${character.id}`,
+                            )
+                            .setLabel(
+                                'Remover',
+                            )
+                            .setStyle(
+                                ButtonStyle.Danger,
+                            ),
+
+                        new ButtonBuilder()
+                            .setCustomId(
+                                'perfil-remove-cancel',
+                            )
+                            .setLabel(
+                                'Cancelar',
+                            )
+                            .setStyle(
+                                ButtonStyle.Secondary,
+                            ),
+                    );
+
+            await interaction.update({
+                content:
+                    `⚠️ Tens a certeza de que queres remover **${character.character_name}**?`,
+
+                components: [
+                    buttons,
+                ],
+            });
 
             return;
         }
@@ -2562,8 +2006,8 @@ client.on(
                     );
 
                 if (
-                    result.rows
-                        .length === 0
+                    result.rows.length ===
+                    0
                 ) {
                     await dbClient.query(
                         'ROLLBACK',
@@ -2676,7 +2120,7 @@ client.on(
                 );
 
                 console.error(
-                    '❌ Erro ao remover personagem:',
+                    '❌ Erro remover personagem:',
                     error,
                 );
 
@@ -2694,7 +2138,7 @@ client.on(
         }
 
         // =============================================
-        // MODAL: ADICIONAR
+        // MODAL ADICIONAR
         // =============================================
 
         if (
@@ -2746,23 +2190,19 @@ client.on(
                         discord_id,
                         discord_username
                     )
-
                     VALUES ($1, $2)
 
                     ON CONFLICT (
                         discord_id
                     )
-
                     DO UPDATE SET
                         discord_username =
                             EXCLUDED.discord_username,
-
                         updated_at =
                             NOW()
                     `,
                     [
                         interaction.user.id,
-
                         interaction.user
                             .username,
                     ],
@@ -2772,8 +2212,7 @@ client.on(
                     await dbClient.query(
                         `
                         SELECT
-                            COUNT(*)::INTEGER
-                                AS count
+                            COUNT(*)::INTEGER AS count
 
                         FROM characters
 
@@ -2785,12 +2224,9 @@ client.on(
                         ],
                     );
 
-                const characterCount =
-                    countResult.rows[0]
-                        .count;
-
                 const makeMain =
-                    characterCount === 0 ||
+                    countResult.rows[0]
+                        .count === 0 ||
                     requestedMain;
 
                 if (makeMain) {
@@ -2821,7 +2257,6 @@ client.on(
                         level,
                         is_main
                     )
-
                     VALUES (
                         $1,
                         $2,
@@ -2862,13 +2297,9 @@ client.on(
                     'ROLLBACK',
                 );
 
-                console.error(
-                    '❌ Erro ao adicionar personagem:',
-                    error,
-                );
-
                 if (
-                    error.code === '23505'
+                    error.code ===
+                    '23505'
                 ) {
                     await interaction.editReply(
                         `❌ Já existe uma personagem chamada **${characterName}** registada.`,
@@ -2876,6 +2307,10 @@ client.on(
 
                     return;
                 }
+
+                console.error(
+                    error,
+                );
 
                 await interaction.editReply(
                     '❌ Ocorreu um erro ao guardar a personagem.',
@@ -2888,7 +2323,7 @@ client.on(
         }
 
         // =============================================
-        // MODAL: EDITAR
+        // MODAL EDITAR
         // =============================================
 
         if (
@@ -2944,7 +2379,6 @@ client.on(
                         `
                         SELECT
                             id,
-                            character_name,
                             is_main
 
                         FROM characters
@@ -2983,8 +2417,7 @@ client.on(
                     await dbClient.query(
                         `
                         SELECT
-                            COUNT(*)::INTEGER
-                                AS count
+                            COUNT(*)::INTEGER AS count
 
                         FROM characters
 
@@ -3082,8 +2515,7 @@ client.on(
                     const replacement =
                         await dbClient.query(
                             `
-                            SELECT
-                                id
+                            SELECT id
 
                             FROM characters
 
@@ -3172,13 +2604,9 @@ client.on(
                     'ROLLBACK',
                 );
 
-                console.error(
-                    '❌ Erro ao editar personagem:',
-                    error,
-                );
-
                 if (
-                    error.code === '23505'
+                    error.code ===
+                    '23505'
                 ) {
                     await interaction.editReply(
                         `❌ Já existe uma personagem chamada **${characterName}** registada.`,
@@ -3186,6 +2614,10 @@ client.on(
 
                     return;
                 }
+
+                console.error(
+                    error,
+                );
 
                 await interaction.editReply(
                     '❌ Ocorreu um erro ao editar a personagem.',

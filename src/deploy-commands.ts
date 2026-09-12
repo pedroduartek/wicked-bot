@@ -22,8 +22,28 @@ const commands = [
         .setDescription('Verifica se o Wicked Bot está online'),
 
     new SlashCommandBuilder()
-        .setName('perfil')
-        .setDescription('Regista ou atualiza a tua personagem no roster'),
+    .setName('perfil')
+    .setDescription('Gere as tuas personagens')
+    .addSubcommand(subcommand =>
+        subcommand
+            .setName('adicionar')
+            .setDescription('Adiciona uma personagem ao teu perfil'),
+    )
+    .addSubcommand(subcommand =>
+        subcommand
+            .setName('listar')
+            .setDescription('Mostra as tuas personagens registadas'),
+    )
+    .addSubcommand(subcommand =>
+        subcommand
+            .setName('editar')
+            .setDescription('Edita uma personagem registada'),
+    )
+    .addSubcommand(subcommand =>
+        subcommand
+            .setName('remover')
+            .setDescription('Remove uma personagem registada'),
+    ),
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(token);

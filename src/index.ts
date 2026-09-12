@@ -129,9 +129,9 @@ function buildCharacterModal(
             .setCustomId(customId)
             .setTitle(title);
 
-    // -------------------------------------------------
-    // Nome
-    // -------------------------------------------------
+    // =================================================
+    // NOME
+    // =================================================
 
     const nameInput =
         new TextInputBuilder()
@@ -166,9 +166,9 @@ function buildCharacterModal(
                 nameInput,
             );
 
-    // -------------------------------------------------
-    // Classe
-    // -------------------------------------------------
+    // =================================================
+    // CLASSE
+    // =================================================
 
     const classSelect =
         new StringSelectMenuBuilder()
@@ -178,8 +178,6 @@ function buildCharacterModal(
             .setPlaceholder(
                 'Seleciona a classe',
             )
-            .setMinValues(1)
-            .setMaxValues(1)
             .setRequired(true)
             .addOptions(
                 ...VALID_CLASSES.map(
@@ -200,14 +198,16 @@ function buildCharacterModal(
 
     const classLabel =
         new LabelBuilder()
-            .setLabel('Classe')
+            .setLabel(
+                'Classe',
+            )
             .setStringSelectMenuComponent(
                 classSelect,
             );
 
-    // -------------------------------------------------
-    // Estado PvM / PvP
-    // -------------------------------------------------
+    // =================================================
+    // ESTADO PvM / PvP
+    // =================================================
 
     const currentStatus =
         character?.character_status;
@@ -218,10 +218,8 @@ function buildCharacterModal(
                 'character-status',
             )
             .setPlaceholder(
-                'Seleciona o estado da personagem',
+                'Seleciona PvM ou PvP',
             )
-            .setMinValues(1)
-            .setMaxValues(1)
             .setRequired(true)
             .addOptions(
                 {
@@ -234,19 +232,17 @@ function buildCharacterModal(
                         currentStatus ===
                         'pvp',
                 },
+
                 {
                     label: 'PvM',
                     description:
                         'Personagem em progressão ou usada para PvM',
                     value: 'pvm',
 
-                    // Personagens antigas que ainda tenham
-                    // character_status = NULL ficam com PvM
-                    // pré-selecionado ao abrir o modal.
                     default:
                         currentStatus ===
                             'pvm' ||
-                        !currentStatus,
+                        currentStatus == null,
                 },
             );
 
@@ -256,15 +252,15 @@ function buildCharacterModal(
                 'Estado da personagem',
             )
             .setDescription(
-                'Independente da tua role geral no Azuria',
+                'Define se esta personagem é PvM ou PvP',
             )
             .setStringSelectMenuComponent(
                 statusSelect,
             );
 
-    // -------------------------------------------------
-    // Nível
-    // -------------------------------------------------
+    // =================================================
+    // NÍVEL
+    // =================================================
 
     const levelInput =
         new TextInputBuilder()
@@ -274,27 +270,33 @@ function buildCharacterModal(
             .setStyle(
                 TextInputStyle.Short,
             )
-            .setPlaceholder('Ex: 120')
+            .setPlaceholder(
+                'Ex: 120',
+            )
             .setMinLength(1)
             .setMaxLength(3)
             .setRequired(true);
 
     if (character) {
         levelInput.setValue(
-            String(character.level),
+            String(
+                character.level,
+            ),
         );
     }
 
     const levelLabel =
         new LabelBuilder()
-            .setLabel('Nível')
+            .setLabel(
+                'Nível',
+            )
             .setTextInputComponent(
                 levelInput,
             );
 
-    // -------------------------------------------------
-    // Main
-    // -------------------------------------------------
+    // =================================================
+    // MAIN
+    // =================================================
 
     const mainSelect =
         new StringSelectMenuBuilder()
@@ -304,8 +306,6 @@ function buildCharacterModal(
             .setPlaceholder(
                 'É a tua personagem principal?',
             )
-            .setMinValues(1)
-            .setMaxValues(1)
             .setRequired(true)
             .addOptions(
                 {
@@ -319,6 +319,7 @@ function buildCharacterModal(
                             ?.is_main ===
                         true,
                 },
+
                 {
                     label: 'Não',
                     description:
@@ -327,8 +328,8 @@ function buildCharacterModal(
 
                     default:
                         character
-                            ?.is_main ===
-                        false,
+                            ?.is_main !==
+                        true,
                 },
             );
 
@@ -344,6 +345,10 @@ function buildCharacterModal(
                 mainSelect,
             );
 
+    // =================================================
+    // MODAL
+    // =================================================
+
     modal.addLabelComponents(
         nameLabel,
         classLabel,
@@ -356,6 +361,102 @@ function buildCharacterModal(
 }
 
 function readCharacterModal(
+    interaction:
+        ModalSubmitInteraction,
+) {
+    console.log(
+        '📨 Modal recebido:',
+        interaction.customId,
+    );
+
+    const characterName =
+        interaction.fields
+            .getTextInputValue(
+                'character-name',
+            )
+            .trim();
+
+    const characterClassValues =
+        interaction.fields
+            .getStringSelectValues(
+                'character-class',
+            );
+
+    const characterStatusValues =
+        interaction.fields
+            .getStringSelectValues(
+                'character-status',
+            );
+
+    const mainValues =
+        interaction.fields
+            .getStringSelectValues(
+                'character-main',
+            );
+
+    const levelText =
+        interaction.fields
+            .getTextInputValue(
+                'character-level',
+            )
+            .trim();
+
+    console.log(
+        '📋 Dados modal:',
+        {
+            characterName,
+            characterClassValues,
+            characterStatusValues,
+            levelText,
+            mainValues,
+        },
+    );
+
+    const characterClass =
+        characterClassValues[0];
+
+    const characterStatus =
+        characterStatusValues[0] as
+            CharacterStatus |
+            undefined;
+
+    const requestedMain =
+        mainValues[0] ===
+        'yes';
+
+    if (!characterClass) {
+        throw new Error(
+            'character-class não foi preenchido.',
+        );
+    }
+
+    if (
+        characterStatus !== 'pvm' &&
+        characterStatus !== 'pvp'
+    ) {
+        throw new Error(
+            'character-status não foi preenchido corretamente.',
+        );
+    }
+
+    if (
+        mainValues.length === 0
+    ) {
+        throw new Error(
+            'character-main não foi preenchido.',
+        );
+    }
+
+    return {
+        characterName,
+        characterClass,
+        characterStatus,
+        level:
+            Number(levelText),
+        requestedMain,
+    };
+}
+
     interaction:
         ModalSubmitInteraction,
 ) {

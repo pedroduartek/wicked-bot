@@ -8,10 +8,12 @@ import {
     EmbedBuilder,
     Events,
     GatewayIntentBits,
+    GuildMember,
     LabelBuilder,
     MessageFlags,
     ModalBuilder,
     ModalSubmitInteraction,
+    PermissionFlagsBits,
     StringSelectMenuBuilder,
     TextInputBuilder,
     TextInputStyle,
@@ -26,8 +28,23 @@ import { db } from './database';
 const token = process.env.DISCORD_TOKEN;
 
 if (!token) {
-    throw new Error('DISCORD_TOKEN não está definido.');
+    throw new Error(
+        'DISCORD_TOKEN não está definido.',
+    );
 }
+
+// -----------------------------------------------------
+// AZURIA ROLES
+// -----------------------------------------------------
+
+const AZURIA_ROLE_ID =
+    '1547612647736746074';
+
+const AZURIA_PVP_ROLE_ID =
+    '1548260956860325959';
+
+const AZURIA_PVM_ROLE_ID =
+    '1548261013550276648';
 
 const client = new Client({
     intents: [
@@ -85,104 +102,157 @@ function buildCharacterModal(
     // Nome
     // -------------------------------------------------
 
-    const nameInput = new TextInputBuilder()
-        .setCustomId('character-name')
-        .setStyle(TextInputStyle.Short)
-        .setPlaceholder('Ex: PedroWar')
-        .setMinLength(2)
-        .setMaxLength(24)
-        .setRequired(true);
+    const nameInput =
+        new TextInputBuilder()
+            .setCustomId(
+                'character-name',
+            )
+            .setStyle(
+                TextInputStyle.Short,
+            )
+            .setPlaceholder(
+                'Ex: PedroWar',
+            )
+            .setMinLength(2)
+            .setMaxLength(24)
+            .setRequired(true);
 
     if (character) {
-        nameInput.setValue(character.character_name);
+        nameInput.setValue(
+            character.character_name,
+        );
     }
 
-    const nameLabel = new LabelBuilder()
-        .setLabel('Nome da personagem')
-        .setDescription(
-            'Nome exato da personagem no Azuria',
-        )
-        .setTextInputComponent(nameInput);
+    const nameLabel =
+        new LabelBuilder()
+            .setLabel(
+                'Nome da personagem',
+            )
+            .setDescription(
+                'Nome exato da personagem no Azuria',
+            )
+            .setTextInputComponent(
+                nameInput,
+            );
 
     // -------------------------------------------------
     // Classe
     // -------------------------------------------------
 
-    const classSelect = new StringSelectMenuBuilder()
-        .setCustomId('character-class')
-        .setPlaceholder('Seleciona a classe')
-        .setMinValues(1)
-        .setMaxValues(1)
-        .setRequired(true)
-        .addOptions(
-            ...VALID_CLASSES.map(characterClass => ({
-                label: characterClass,
-                value: characterClass,
-                default:
-                    character?.character_class ===
-                    characterClass,
-            })),
-        );
+    const classSelect =
+        new StringSelectMenuBuilder()
+            .setCustomId(
+                'character-class',
+            )
+            .setPlaceholder(
+                'Seleciona a classe',
+            )
+            .setMinValues(1)
+            .setMaxValues(1)
+            .setRequired(true)
+            .addOptions(
+                ...VALID_CLASSES.map(
+                    characterClass => ({
+                        label:
+                            characterClass,
 
-    const classLabel = new LabelBuilder()
-        .setLabel('Classe')
-        .setStringSelectMenuComponent(classSelect);
+                        value:
+                            characterClass,
+
+                        default:
+                            character
+                                ?.character_class ===
+                            characterClass,
+                    }),
+                ),
+            );
+
+    const classLabel =
+        new LabelBuilder()
+            .setLabel('Classe')
+            .setStringSelectMenuComponent(
+                classSelect,
+            );
 
     // -------------------------------------------------
     // Nível
     // -------------------------------------------------
 
-    const levelInput = new TextInputBuilder()
-        .setCustomId('character-level')
-        .setStyle(TextInputStyle.Short)
-        .setPlaceholder('Ex: 120')
-        .setMinLength(1)
-        .setMaxLength(3)
-        .setRequired(true);
+    const levelInput =
+        new TextInputBuilder()
+            .setCustomId(
+                'character-level',
+            )
+            .setStyle(
+                TextInputStyle.Short,
+            )
+            .setPlaceholder('Ex: 120')
+            .setMinLength(1)
+            .setMaxLength(3)
+            .setRequired(true);
 
     if (character) {
-        levelInput.setValue(String(character.level));
+        levelInput.setValue(
+            String(character.level),
+        );
     }
 
-    const levelLabel = new LabelBuilder()
-        .setLabel('Nível')
-        .setTextInputComponent(levelInput);
+    const levelLabel =
+        new LabelBuilder()
+            .setLabel('Nível')
+            .setTextInputComponent(
+                levelInput,
+            );
 
     // -------------------------------------------------
     // Main
     // -------------------------------------------------
 
-    const mainSelect = new StringSelectMenuBuilder()
-        .setCustomId('character-main')
-        .setPlaceholder(
-            'É a tua personagem principal?',
-        )
-        .setMinValues(1)
-        .setMaxValues(1)
-        .setRequired(true)
-        .addOptions(
-            {
-                label: 'Sim',
-                description:
-                    'Definir como personagem principal',
-                value: 'yes',
-                default: character?.is_main === true,
-            },
-            {
-                label: 'Não',
-                description:
-                    'Personagem secundária',
-                value: 'no',
-                default: character?.is_main === false,
-            },
-        );
+    const mainSelect =
+        new StringSelectMenuBuilder()
+            .setCustomId(
+                'character-main',
+            )
+            .setPlaceholder(
+                'É a tua personagem principal?',
+            )
+            .setMinValues(1)
+            .setMaxValues(1)
+            .setRequired(true)
+            .addOptions(
+                {
+                    label: 'Sim',
+                    description:
+                        'Definir como personagem principal',
+                    value: 'yes',
+                    default:
+                        character
+                            ?.is_main ===
+                        true,
+                },
+                {
+                    label: 'Não',
+                    description:
+                        'Personagem secundária',
+                    value: 'no',
+                    default:
+                        character
+                            ?.is_main ===
+                        false,
+                },
+            );
 
-    const mainLabel = new LabelBuilder()
-        .setLabel('Personagem principal')
-        .setDescription(
-            'Só podes ter uma personagem principal',
-        )
-        .setStringSelectMenuComponent(mainSelect);
+    const mainLabel =
+        new LabelBuilder()
+            .setLabel(
+                'Personagem principal',
+            )
+            .setDescription(
+                'Só podes ter uma personagem principal',
+            )
+            .setStringSelectMenuComponent(
+                mainSelect,
+            );
 
     modal.addLabelComponents(
         nameLabel,
@@ -195,25 +265,34 @@ function buildCharacterModal(
 }
 
 function readCharacterModal(
-    interaction: ModalSubmitInteraction,
+    interaction:
+        ModalSubmitInteraction,
 ) {
-    const characterName = interaction.fields
-        .getTextInputValue('character-name')
-        .trim();
+    const characterName =
+        interaction.fields
+            .getTextInputValue(
+                'character-name',
+            )
+            .trim();
 
     const characterClass =
-        interaction.fields.getStringSelectValues(
-            'character-class',
-        )[0];
+        interaction.fields
+            .getStringSelectValues(
+                'character-class',
+            )[0];
 
-    const levelText = interaction.fields
-        .getTextInputValue('character-level')
-        .trim();
+    const levelText =
+        interaction.fields
+            .getTextInputValue(
+                'character-level',
+            )
+            .trim();
 
     const requestedMain =
-        interaction.fields.getStringSelectValues(
-            'character-main',
-        )[0] === 'yes';
+        interaction.fields
+            .getStringSelectValues(
+                'character-main',
+            )[0] === 'yes';
 
     return {
         characterName,
@@ -237,7 +316,9 @@ function validateCharacter(
 
     if (
         !characterClass ||
-        !VALID_CLASSES.includes(characterClass)
+        !VALID_CLASSES.includes(
+            characterClass,
+        )
     ) {
         return '❌ Classe inválida.';
     }
@@ -257,70 +338,194 @@ function buildCharacterSelect(
     customId: string,
     characters: CharacterData[],
 ) {
-    const select = new StringSelectMenuBuilder()
-        .setCustomId(customId)
-        .setPlaceholder('Seleciona uma personagem')
-        .setMinValues(1)
-        .setMaxValues(1)
-        .addOptions(
-            characters.map(character => ({
-                label:
-                    `${character.is_main ? '⭐ ' : ''}` +
-                    character.character_name,
+    const select =
+        new StringSelectMenuBuilder()
+            .setCustomId(customId)
+            .setPlaceholder(
+                'Seleciona uma personagem',
+            )
+            .setMinValues(1)
+            .setMaxValues(1)
+            .addOptions(
+                characters.map(
+                    character => ({
+                        label:
+                            `${
+                                character
+                                    .is_main
+                                    ? '⭐ '
+                                    : ''
+                            }` +
+                            character
+                                .character_name,
 
-                description:
-                    `${character.character_class} • ` +
-                    `Lv. ${character.level}`,
+                        description:
+                            `${character.character_class} • ` +
+                            `Lv. ${character.level}`,
 
-                value: String(character.id),
-            })),
-        );
+                        value: String(
+                            character.id,
+                        ),
+                    }),
+                ),
+            );
 
     return new ActionRowBuilder<StringSelectMenuBuilder>()
         .addComponents(select);
 }
 
 // =====================================================
+// AZURIA HELPERS
+// =====================================================
+
+async function syncAzuriaRole(
+    member: GuildMember,
+) {
+    const hasPvm =
+        member.roles.cache.has(
+            AZURIA_PVM_ROLE_ID,
+        );
+
+    const hasPvp =
+        member.roles.cache.has(
+            AZURIA_PVP_ROLE_ID,
+        );
+
+    const hasAzuria =
+        member.roles.cache.has(
+            AZURIA_ROLE_ID,
+        );
+
+    const shouldHaveAzuria =
+        hasPvm || hasPvp;
+
+    if (
+        shouldHaveAzuria &&
+        !hasAzuria
+    ) {
+        await member.roles.add(
+            AZURIA_ROLE_ID,
+        );
+    }
+
+    if (
+        !shouldHaveAzuria &&
+        hasAzuria
+    ) {
+        await member.roles.remove(
+            AZURIA_ROLE_ID,
+        );
+    }
+}
+
+function buildAzuriaPanel() {
+    const buttons =
+        new ActionRowBuilder<ButtonBuilder>()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId(
+                        'azuria-pvm',
+                    )
+                    .setLabel('PvM')
+                    .setEmoji('🐉')
+                    .setStyle(
+                        ButtonStyle.Secondary,
+                    ),
+
+                new ButtonBuilder()
+                    .setCustomId(
+                        'azuria-pvp',
+                    )
+                    .setLabel('PvP')
+                    .setEmoji('⚔️')
+                    .setStyle(
+                        ButtonStyle.Danger,
+                    ),
+            );
+
+    const embed =
+        new EmbedBuilder()
+            .setTitle(
+                '⚔️ Estado no Azuria',
+            )
+            .setDescription(
+                [
+                    'Seleciona o teu estado atual no Azuria.',
+                    '',
+                    '🐉 **PvM** — Estás a jogar no Azuria mas ainda estás em progressão PvM.',
+                    '',
+                    '⚔️ **PvP** — Estás a jogar no Azuria e já estás preparado para PvP.',
+                    '',
+                    'A role **Azuria** é atribuída automaticamente.',
+                    '',
+                    'Podes carregar novamente no teu estado atual para o remover.',
+                ].join('\n'),
+            );
+
+    return {
+        embed,
+        buttons,
+    };
+}
+
+// =====================================================
 // ROSTER HELPERS
 // =====================================================
 
-async function getRosterMembers(): Promise<
-    RosterMember[]
-> {
-    const result = await db.query(`
-        SELECT
-            m.discord_id,
-            m.discord_username,
+async function getRosterMembers():
+    Promise<RosterMember[]> {
+    const result =
+        await db.query(`
+            SELECT
+                m.discord_id,
+                m.discord_username,
 
-            c.id,
-            c.character_name,
-            c.character_class,
-            c.level,
-            c.is_main
+                c.id,
+                c.character_name,
+                c.character_class,
+                c.level,
+                c.is_main
 
-        FROM members m
+            FROM members m
 
-        INNER JOIN characters c
-            ON c.discord_id = m.discord_id
+            INNER JOIN characters c
+                ON c.discord_id =
+                    m.discord_id
 
-        ORDER BY
-            LOWER(m.discord_username) ASC,
-            c.is_main DESC,
-            LOWER(c.character_name) ASC
-    `);
+            ORDER BY
+                LOWER(
+                    m.discord_username
+                ) ASC,
+
+                c.is_main DESC,
+
+                LOWER(
+                    c.character_name
+                ) ASC
+        `);
 
     const members =
-        new Map<string, RosterMember>();
+        new Map<
+            string,
+            RosterMember
+        >();
 
-    for (const row of result.rows) {
+    for (
+        const row of result.rows
+    ) {
         let member =
-            members.get(row.discord_id);
+            members.get(
+                row.discord_id,
+            );
 
         if (!member) {
             member = {
-                discord_id: row.discord_id,
+                discord_id:
+                    row.discord_id,
+
                 discord_username:
                     row.discord_username,
+
                 characters: [],
             };
 
@@ -332,40 +537,50 @@ async function getRosterMembers(): Promise<
 
         member.characters.push({
             id: row.id,
+
             character_name:
                 row.character_name,
+
             character_class:
                 row.character_class,
+
             level: row.level,
-            is_main: row.is_main,
+
+            is_main:
+                row.is_main,
         });
     }
 
-    return Array.from(members.values());
+    return Array.from(
+        members.values(),
+    );
 }
 
 function buildRosterPage(
     members: RosterMember[],
     requestedPage: number,
 ) {
-    const totalPages = Math.max(
-        1,
-        Math.ceil(
-            members.length /
-                ROSTER_MEMBERS_PER_PAGE,
-        ),
-    );
+    const totalPages =
+        Math.max(
+            1,
+            Math.ceil(
+                members.length /
+                    ROSTER_MEMBERS_PER_PAGE,
+            ),
+        );
 
-    const page = Math.max(
-        0,
-        Math.min(
-            requestedPage,
-            totalPages - 1,
-        ),
-    );
+    const page =
+        Math.max(
+            0,
+            Math.min(
+                requestedPage,
+                totalPages - 1,
+            ),
+        );
 
     const start =
-        page * ROSTER_MEMBERS_PER_PAGE;
+        page *
+        ROSTER_MEMBERS_PER_PAGE;
 
     const pageMembers =
         members.slice(
@@ -376,25 +591,38 @@ function buildRosterPage(
 
     const totalCharacters =
         members.reduce(
-            (total, member) =>
+            (
+                total,
+                member,
+            ) =>
                 total +
-                member.characters.length,
+                member
+                    .characters
+                    .length,
+
             0,
         );
 
-    const embed = new EmbedBuilder()
-        .setTitle('⚔️ Wicked — Roster')
-        .setDescription(
-            `**${members.length} membros** • ` +
-            `**${totalCharacters} personagens**`,
-        )
-        .setFooter({
-            text:
-                `Página ${page + 1}/${totalPages}`,
-        })
-        .setTimestamp();
+    const embed =
+        new EmbedBuilder()
+            .setTitle(
+                '⚔️ Wicked — Roster',
+            )
+            .setDescription(
+                `**${members.length} membros** • ` +
+                `**${totalCharacters} personagens**`,
+            )
+            .setFooter({
+                text:
+                    `Página ${
+                        page + 1
+                    }/${totalPages}`,
+            })
+            .setTimestamp();
 
-    for (const member of pageMembers) {
+    for (
+        const member of pageMembers
+    ) {
         const characterLines =
             member.characters.map(
                 character => {
@@ -412,14 +640,18 @@ function buildRosterPage(
             );
 
         let value =
-            characterLines.join('\n');
+            characterLines.join(
+                '\n',
+            );
 
-        // Cada field do Discord tem limite
-        // de 1024 caracteres.
-        if (value.length > 1000) {
+        if (
+            value.length > 1000
+        ) {
             value =
-                value.substring(0, 997) +
-                '...';
+                value.substring(
+                    0,
+                    997,
+                ) + '...';
         }
 
         embed.addFields({
@@ -453,7 +685,9 @@ function buildRosterButtons(
             .setStyle(
                 ButtonStyle.Secondary,
             )
-            .setDisabled(page === 0);
+            .setDisabled(
+                page === 0,
+            );
 
     const next =
         new ButtonBuilder()
@@ -467,7 +701,8 @@ function buildRosterButtons(
                 ButtonStyle.Secondary,
             )
             .setDisabled(
-                page >= totalPages - 1,
+                page >=
+                    totalPages - 1,
             );
 
     return new ActionRowBuilder<ButtonBuilder>()
@@ -489,13 +724,15 @@ client.once(
         );
 
         try {
-            const result = await db.query(
-                'SELECT NOW() AS current_time',
-            );
+            const result =
+                await db.query(
+                    'SELECT NOW() AS current_time',
+                );
 
             console.log(
                 '✅ PostgreSQL ligado:',
-                result.rows[0].current_time,
+                result.rows[0]
+                    .current_time,
             );
         } catch (error) {
             console.error(
@@ -518,7 +755,9 @@ client.on(
         // SLASH COMMANDS
         // =============================================
 
-        if (interaction.isChatInputCommand()) {
+        if (
+            interaction.isChatInputCommand()
+        ) {
 
             // -----------------------------------------
             // /ping
@@ -536,6 +775,57 @@ client.on(
             }
 
             // -----------------------------------------
+            // /azuria painel
+            // -----------------------------------------
+
+            if (
+                interaction.commandName ===
+                'azuria'
+            ) {
+                if (
+                    !interaction.memberPermissions
+                        ?.has(
+                            PermissionFlagsBits
+                                .ManageGuild,
+                        )
+                ) {
+                    await interaction.reply({
+                        content:
+                            '❌ Não tens permissão para publicar este painel.',
+
+                        flags:
+                            MessageFlags.Ephemeral,
+                    });
+
+                    return;
+                }
+
+                const subcommand =
+                    interaction.options
+                        .getSubcommand();
+
+                if (
+                    subcommand ===
+                    'painel'
+                ) {
+                    const {
+                        embed,
+                        buttons,
+                    } =
+                        buildAzuriaPanel();
+
+                    await interaction.reply({
+                        embeds: [embed],
+                        components: [
+                            buttons,
+                        ],
+                    });
+
+                    return;
+                }
+            }
+
+            // -----------------------------------------
             // /roster
             // -----------------------------------------
 
@@ -550,7 +840,8 @@ client.on(
                         await getRosterMembers();
 
                     if (
-                        members.length === 0
+                        members.length ===
+                        0
                     ) {
                         await interaction.editReply(
                             'Ainda não existem personagens registadas no roster.',
@@ -563,10 +854,11 @@ client.on(
                         embed,
                         page,
                         totalPages,
-                    } = buildRosterPage(
-                        members,
-                        0,
-                    );
+                    } =
+                        buildRosterPage(
+                            members,
+                            0,
+                        );
 
                     await interaction.editReply({
                         embeds: [embed],
@@ -578,7 +870,9 @@ client.on(
                                         interaction
                                             .user
                                             .id,
+
                                         page,
+
                                         totalPages,
                                     ),
                                 ]
@@ -610,14 +904,16 @@ client.on(
             }
 
             const subcommand =
-                interaction.options.getSubcommand();
+                interaction.options
+                    .getSubcommand();
 
             // =========================================
             // /perfil adicionar
             // =========================================
 
             if (
-                subcommand === 'adicionar'
+                subcommand ===
+                'adicionar'
             ) {
                 await interaction.showModal(
                     buildCharacterModal(
@@ -634,7 +930,8 @@ client.on(
             // =========================================
 
             if (
-                subcommand === 'listar'
+                subcommand ===
+                'listar'
             ) {
                 await interaction.deferReply({
                     flags:
@@ -651,20 +948,27 @@ client.on(
                                 character_class,
                                 level,
                                 is_main
+
                             FROM characters
-                            WHERE discord_id = $1
+
+                            WHERE
+                                discord_id = $1
+
                             ORDER BY
                                 is_main DESC,
-                                LOWER(character_name) ASC
+                                LOWER(
+                                    character_name
+                                ) ASC
                             `,
                             [
-                                interaction.user.id,
+                                interaction
+                                    .user.id,
                             ],
                         );
 
                     if (
-                        result.rows.length ===
-                        0
+                        result.rows
+                            .length === 0
                     ) {
                         await interaction.editReply(
                             'Ainda não tens nenhuma personagem registada.\n\n' +
@@ -679,7 +983,8 @@ client.on(
                             character =>
                                 (
                                     `${
-                                        character.is_main
+                                        character
+                                            .is_main
                                             ? '⭐ '
                                             : ''
                                     }` +
@@ -692,9 +997,11 @@ client.on(
                     await interaction.editReply(
                         [
                             `## Personagens de ${
-                                interaction.user
+                                interaction
+                                    .user
                                     .globalName ??
-                                interaction.user
+                                interaction
+                                    .user
                                     .username
                             }`,
                             '',
@@ -720,7 +1027,8 @@ client.on(
             // =========================================
 
             if (
-                subcommand === 'editar'
+                subcommand ===
+                'editar'
             ) {
                 try {
                     const result =
@@ -732,24 +1040,32 @@ client.on(
                                 character_class,
                                 level,
                                 is_main
+
                             FROM characters
-                            WHERE discord_id = $1
+
+                            WHERE
+                                discord_id = $1
+
                             ORDER BY
                                 is_main DESC,
-                                LOWER(character_name) ASC
+                                LOWER(
+                                    character_name
+                                ) ASC
                             `,
                             [
-                                interaction.user.id,
+                                interaction
+                                    .user.id,
                             ],
                         );
 
                     if (
-                        result.rows.length ===
-                        0
+                        result.rows
+                            .length === 0
                     ) {
                         await interaction.reply({
                             content:
                                 'Ainda não tens nenhuma personagem registada.',
+
                             flags:
                                 MessageFlags.Ephemeral,
                         });
@@ -780,6 +1096,7 @@ client.on(
                     await interaction.reply({
                         content:
                             '❌ Ocorreu um erro ao consultar as tuas personagens.',
+
                         flags:
                             MessageFlags.Ephemeral,
                     });
@@ -793,7 +1110,8 @@ client.on(
             // =========================================
 
             if (
-                subcommand === 'remover'
+                subcommand ===
+                'remover'
             ) {
                 try {
                     const result =
@@ -805,24 +1123,32 @@ client.on(
                                 character_class,
                                 level,
                                 is_main
+
                             FROM characters
-                            WHERE discord_id = $1
+
+                            WHERE
+                                discord_id = $1
+
                             ORDER BY
                                 is_main DESC,
-                                LOWER(character_name) ASC
+                                LOWER(
+                                    character_name
+                                ) ASC
                             `,
                             [
-                                interaction.user.id,
+                                interaction
+                                    .user.id,
                             ],
                         );
 
                     if (
-                        result.rows.length ===
-                        0
+                        result.rows
+                            .length === 0
                     ) {
                         await interaction.reply({
                             content:
                                 'Ainda não tens nenhuma personagem registada.',
+
                             flags:
                                 MessageFlags.Ephemeral,
                         });
@@ -853,6 +1179,7 @@ client.on(
                     await interaction.reply({
                         content:
                             '❌ Ocorreu um erro ao consultar as tuas personagens.',
+
                         flags:
                             MessageFlags.Ephemeral,
                     });
@@ -860,6 +1187,157 @@ client.on(
 
                 return;
             }
+        }
+
+        // =============================================
+        // AZURIA BUTTONS
+        // =============================================
+
+        if (
+            interaction.isButton() &&
+            (
+                interaction.customId ===
+                    'azuria-pvm' ||
+                interaction.customId ===
+                    'azuria-pvp'
+            )
+        ) {
+            if (!interaction.guild) {
+                return;
+            }
+
+            await interaction.deferReply({
+                flags:
+                    MessageFlags.Ephemeral,
+            });
+
+            try {
+                const member =
+                    await interaction.guild
+                        .members.fetch(
+                            interaction
+                                .user.id,
+                        );
+
+                const hasPvm =
+                    member.roles.cache.has(
+                        AZURIA_PVM_ROLE_ID,
+                    );
+
+                const hasPvp =
+                    member.roles.cache.has(
+                        AZURIA_PVP_ROLE_ID,
+                    );
+
+                // =====================================
+                // PvM
+                // =====================================
+
+                if (
+                    interaction.customId ===
+                    'azuria-pvm'
+                ) {
+                    // Já tinha PvM:
+                    // remover o estado.
+                    if (hasPvm) {
+                        await member.roles.remove(
+                            AZURIA_PVM_ROLE_ID,
+                        );
+
+                        await syncAzuriaRole(
+                            member,
+                        );
+
+                        await interaction.editReply(
+                            '🐉 **Azuria PvM** removido.',
+                        );
+
+                        return;
+                    }
+
+                    // PvM e PvP são exclusivos.
+                    if (hasPvp) {
+                        await member.roles.remove(
+                            AZURIA_PVP_ROLE_ID,
+                        );
+                    }
+
+                    await member.roles.add([
+                        AZURIA_ROLE_ID,
+                        AZURIA_PVM_ROLE_ID,
+                    ]);
+
+                    await syncAzuriaRole(
+                        member,
+                    );
+
+                    await interaction.editReply(
+                        '🐉 Estado atualizado para **Azuria PvM**.',
+                    );
+
+                    return;
+                }
+
+                // =====================================
+                // PvP
+                // =====================================
+
+                if (
+                    interaction.customId ===
+                    'azuria-pvp'
+                ) {
+                    // Já tinha PvP:
+                    // remover o estado.
+                    if (hasPvp) {
+                        await member.roles.remove(
+                            AZURIA_PVP_ROLE_ID,
+                        );
+
+                        await syncAzuriaRole(
+                            member,
+                        );
+
+                        await interaction.editReply(
+                            '⚔️ **Azuria PvP** removido.',
+                        );
+
+                        return;
+                    }
+
+                    // PvP e PvM são exclusivos.
+                    if (hasPvm) {
+                        await member.roles.remove(
+                            AZURIA_PVM_ROLE_ID,
+                        );
+                    }
+
+                    await member.roles.add([
+                        AZURIA_ROLE_ID,
+                        AZURIA_PVP_ROLE_ID,
+                    ]);
+
+                    await syncAzuriaRole(
+                        member,
+                    );
+
+                    await interaction.editReply(
+                        '⚔️ Estado atualizado para **Azuria PvP**.',
+                    );
+
+                    return;
+                }
+            } catch (error) {
+                console.error(
+                    '❌ Erro ao atualizar roles Azuria:',
+                    error,
+                );
+
+                await interaction.editReply(
+                    '❌ Não consegui atualizar as tuas roles. Verifica as permissões e a hierarquia da role do bot.',
+                );
+            }
+
+            return;
         }
 
         // =============================================
@@ -877,9 +1355,8 @@ client.on(
                 ownerId,
                 pageText,
             ] =
-                interaction.customId.split(
-                    ':',
-                );
+                interaction.customId
+                    .split(':');
 
             if (
                 interaction.user.id !==
@@ -923,13 +1400,15 @@ client.on(
                     embed,
                     page,
                     totalPages,
-                } = buildRosterPage(
-                    members,
-                    requestedPage,
-                );
+                } =
+                    buildRosterPage(
+                        members,
+                        requestedPage,
+                    );
 
                 await interaction.editReply({
                     content: null,
+
                     embeds: [embed],
 
                     components:
@@ -975,7 +1454,9 @@ client.on(
                             character_class,
                             level,
                             is_main
+
                         FROM characters
+
                         WHERE
                             id = $1
                             AND discord_id = $2
@@ -987,7 +1468,8 @@ client.on(
                     );
 
                 if (
-                    result.rows.length === 0
+                    result.rows
+                        .length === 0
                 ) {
                     await interaction.reply({
                         content:
@@ -1050,7 +1532,9 @@ client.on(
                             character_class,
                             level,
                             is_main
+
                         FROM characters
+
                         WHERE
                             id = $1
                             AND discord_id = $2
@@ -1062,7 +1546,8 @@ client.on(
                     );
 
                 if (
-                    result.rows.length === 0
+                    result.rows
+                        .length === 0
                 ) {
                     await interaction.update({
                         content:
@@ -1108,7 +1593,9 @@ client.on(
                         `⚠️ Tens a certeza de que queres remover ` +
                         `**${character.character_name}**?`,
 
-                    components: [buttons],
+                    components: [
+                        buttons,
+                    ],
                 });
             } catch (error) {
                 console.error(
@@ -1128,7 +1615,7 @@ client.on(
         }
 
         // =============================================
-        // BUTTON: CANCELAR REMOÇÃO
+        // CANCELAR REMOÇÃO
         // =============================================
 
         if (
@@ -1139,6 +1626,7 @@ client.on(
             await interaction.update({
                 content:
                     '✅ Remoção cancelada.',
+
                 components: [],
             });
 
@@ -1146,7 +1634,7 @@ client.on(
         }
 
         // =============================================
-        // BUTTON: CONFIRMAR REMOÇÃO
+        // CONFIRMAR REMOÇÃO
         // =============================================
 
         if (
@@ -1158,9 +1646,8 @@ client.on(
             await interaction.deferUpdate();
 
             const characterId =
-                interaction.customId.split(
-                    ':',
-                )[1];
+                interaction.customId
+                    .split(':')[1];
 
             const dbClient =
                 await db.connect();
@@ -1177,10 +1664,13 @@ client.on(
                             id,
                             character_name,
                             is_main
+
                         FROM characters
+
                         WHERE
                             id = $1
                             AND discord_id = $2
+
                         FOR UPDATE
                         `,
                         [
@@ -1190,7 +1680,8 @@ client.on(
                     );
 
                 if (
-                    result.rows.length === 0
+                    result.rows
+                        .length === 0
                 ) {
                     await dbClient.query(
                         'ROLLBACK',
@@ -1212,6 +1703,7 @@ client.on(
                 await dbClient.query(
                     `
                     DELETE FROM characters
+
                     WHERE
                         id = $1
                         AND discord_id = $2
@@ -1223,28 +1715,32 @@ client.on(
                 );
 
                 let newMainName:
-                    | string
-                    | null = null;
+                    string | null =
+                    null;
 
-                // Se apagámos a Main,
-                // promover outra automaticamente.
-                if (character.is_main) {
+                if (
+                    character.is_main
+                ) {
                     const replacement =
                         await dbClient.query(
                             `
                             SELECT
                                 id,
                                 character_name
+
                             FROM characters
-                            WHERE discord_id = $1
+
+                            WHERE
+                                discord_id = $1
+
                             ORDER BY
                                 created_at ASC,
                                 id ASC
+
                             LIMIT 1
                             `,
                             [
-                                interaction
-                                    .user.id,
+                                interaction.user.id,
                             ],
                         );
 
@@ -1255,10 +1751,13 @@ client.on(
                         await dbClient.query(
                             `
                             UPDATE characters
+
                             SET
                                 is_main = TRUE,
                                 updated_at = NOW()
-                            WHERE id = $1
+
+                            WHERE
+                                id = $1
                             `,
                             [
                                 replacement
@@ -1267,7 +1766,8 @@ client.on(
                         );
 
                         newMainName =
-                            replacement.rows[0]
+                            replacement
+                                .rows[0]
                                 .character_name;
                     }
                 }
@@ -1312,7 +1812,7 @@ client.on(
         }
 
         // =============================================
-        // MODAL: ADICIONAR PERSONAGEM
+        // MODAL: ADICIONAR
         // =============================================
 
         if (
@@ -1358,24 +1858,29 @@ client.on(
                     'BEGIN',
                 );
 
-                // Criar ou atualizar o membro
-                // Discord.
                 await dbClient.query(
                     `
                     INSERT INTO members (
                         discord_id,
                         discord_username
                     )
+
                     VALUES ($1, $2)
 
-                    ON CONFLICT (discord_id)
+                    ON CONFLICT (
+                        discord_id
+                    )
+
                     DO UPDATE SET
                         discord_username =
                             EXCLUDED.discord_username,
-                        updated_at = NOW()
+
+                        updated_at =
+                            NOW()
                     `,
                     [
                         interaction.user.id,
+
                         interaction.user
                             .username,
                     ],
@@ -1387,12 +1892,14 @@ client.on(
                         SELECT
                             COUNT(*)::INTEGER
                                 AS count
+
                         FROM characters
-                        WHERE discord_id = $1
+
+                        WHERE
+                            discord_id = $1
                         `,
                         [
-                            interaction
-                                .user.id,
+                            interaction.user.id,
                         ],
                     );
 
@@ -1400,8 +1907,6 @@ client.on(
                     countResult.rows[0]
                         .count;
 
-                // A primeira personagem é
-                // sempre Main.
                 const makeMain =
                     characterCount === 0 ||
                     requestedMain;
@@ -1410,16 +1915,17 @@ client.on(
                     await dbClient.query(
                         `
                         UPDATE characters
+
                         SET
                             is_main = FALSE,
                             updated_at = NOW()
+
                         WHERE
                             discord_id = $1
                             AND is_main = TRUE
                         `,
                         [
-                            interaction
-                                .user.id,
+                            interaction.user.id,
                         ],
                     );
                 }
@@ -1433,6 +1939,7 @@ client.on(
                         level,
                         is_main
                     )
+
                     VALUES (
                         $1,
                         $2,
@@ -1468,10 +1975,6 @@ client.on(
                         }`,
                     ].join('\n'),
                 );
-
-                console.log(
-                    `✅ ${interaction.user.username} adicionou ${characterName}`,
-                );
             } catch (error: any) {
                 await dbClient.query(
                     'ROLLBACK',
@@ -1503,7 +2006,7 @@ client.on(
         }
 
         // =============================================
-        // MODAL: EDITAR PERSONAGEM
+        // MODAL: EDITAR
         // =============================================
 
         if (
@@ -1518,9 +2021,8 @@ client.on(
             });
 
             const characterId =
-                interaction.customId.split(
-                    ':',
-                )[1];
+                interaction.customId
+                    .split(':')[1];
 
             const {
                 characterName,
@@ -1562,16 +2064,18 @@ client.on(
                             id,
                             character_name,
                             is_main
+
                         FROM characters
+
                         WHERE
                             id = $1
                             AND discord_id = $2
+
                         FOR UPDATE
                         `,
                         [
                             characterId,
-                            interaction
-                                .user.id,
+                            interaction.user.id,
                         ],
                     );
 
@@ -1599,12 +2103,14 @@ client.on(
                         SELECT
                             COUNT(*)::INTEGER
                                 AS count
+
                         FROM characters
-                        WHERE discord_id = $1
+
+                        WHERE
+                            discord_id = $1
                         `,
                         [
-                            interaction
-                                .user.id,
+                            interaction.user.id,
                         ],
                     );
 
@@ -1615,33 +2121,28 @@ client.on(
                 let finalMain =
                     requestedMain;
 
-                // Se é a única personagem,
-                // tem obrigatoriamente de ser Main.
                 if (
                     characterCount === 1
                 ) {
                     finalMain = true;
                 }
 
-                // -------------------------------------
-                // Tornar esta personagem Main
-                // -------------------------------------
-
                 if (finalMain) {
                     await dbClient.query(
                         `
                         UPDATE characters
+
                         SET
                             is_main = FALSE,
                             updated_at = NOW()
+
                         WHERE
                             discord_id = $1
                             AND id <> $2
                             AND is_main = TRUE
                         `,
                         [
-                            interaction
-                                .user.id,
+                            interaction.user.id,
                             characterId,
                         ],
                     );
@@ -1649,12 +2150,14 @@ client.on(
                     await dbClient.query(
                         `
                         UPDATE characters
+
                         SET
                             character_name = $1,
                             character_class = $2,
                             level = $3,
                             is_main = TRUE,
                             updated_at = NOW()
+
                         WHERE
                             id = $4
                             AND discord_id = $5
@@ -1664,28 +2167,23 @@ client.on(
                             characterClass,
                             level,
                             characterId,
-                            interaction
-                                .user.id,
+                            interaction.user.id,
                         ],
                     );
-                }
-
-                // -------------------------------------
-                // Era Main mas deixa de ser
-                // -------------------------------------
-
-                else if (
+                } else if (
                     current.is_main
                 ) {
                     await dbClient.query(
                         `
                         UPDATE characters
+
                         SET
                             character_name = $1,
                             character_class = $2,
                             level = $3,
                             is_main = FALSE,
                             updated_at = NOW()
+
                         WHERE
                             id = $4
                             AND discord_id = $5
@@ -1695,27 +2193,30 @@ client.on(
                             characterClass,
                             level,
                             characterId,
-                            interaction
-                                .user.id,
+                            interaction.user.id,
                         ],
                     );
 
                     const replacement =
                         await dbClient.query(
                             `
-                            SELECT id
+                            SELECT
+                                id
+
                             FROM characters
+
                             WHERE
                                 discord_id = $1
                                 AND id <> $2
+
                             ORDER BY
                                 created_at ASC,
                                 id ASC
+
                             LIMIT 1
                             `,
                             [
-                                interaction
-                                    .user.id,
+                                interaction.user.id,
                                 characterId,
                             ],
                         );
@@ -1727,33 +2228,31 @@ client.on(
                         await dbClient.query(
                             `
                             UPDATE characters
+
                             SET
                                 is_main = TRUE,
                                 updated_at = NOW()
-                            WHERE id = $1
+
+                            WHERE
+                                id = $1
                             `,
                             [
                                 replacement
-                                    .rows[0]
-                                    .id,
+                                    .rows[0].id,
                             ],
                         );
                     }
-                }
-
-                // -------------------------------------
-                // Era secundária e continua secundária
-                // -------------------------------------
-
-                else {
+                } else {
                     await dbClient.query(
                         `
                         UPDATE characters
+
                         SET
                             character_name = $1,
                             character_class = $2,
                             level = $3,
                             updated_at = NOW()
+
                         WHERE
                             id = $4
                             AND discord_id = $5
@@ -1763,8 +2262,7 @@ client.on(
                             characterClass,
                             level,
                             characterId,
-                            interaction
-                                .user.id,
+                            interaction.user.id,
                         ],
                     );
                 }

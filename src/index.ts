@@ -201,49 +201,40 @@ function buildCharacterModal(
     // ESTADO PvM / PvP
     // =================================================
 
-    const currentStatus =
-        character?.character_status;
+	const currentStatus =
+		character?.character_status;
 
-    const statusSelect =
-        new StringSelectMenuBuilder()
-            .setCustomId(
-                'character-status',
-            )
-            .setPlaceholder(
-                'Seleciona PvM ou PvP',
-            )
-            .setRequired(true)
-            .addOptions(
-                {
-                    label:
-                        'PvP',
+	const statusSelect =
+		new StringSelectMenuBuilder()
+			.setCustomId(
+				'character-status',
+			)
+			.setPlaceholder(
+				'Seleciona PvM ou PvP',
+			)
+			.setRequired(true)
+			.addOptions(
+				{
+					label: 'PvP',
+					description:
+						'Personagem pronta para PvP',
+					value: 'pvp',
 
-                    description:
-                        'Personagem pronta para PvP',
+					default:
+						currentStatus ===
+						'pvp',
+				},
+				{
+					label: 'PvM',
+					description:
+						'Personagem em progressão ou usada para PvM',
+					value: 'pvm',
 
-                    value:
-                        'pvp',
-
-                    default:
-                        currentStatus ===
-                        'pvp',
-                },
-                {
-                    label:
-                        'PvM',
-
-                    description:
-                        'Personagem em progressão ou usada para PvM',
-
-                    value:
-                        'pvm',
-
-                    default:
-                        currentStatus ===
-                            'pvm' ||
-                        currentStatus == null,
-                },
-            );
+					default:
+						currentStatus ===
+						'pvm',
+				},
+			);
 
     const statusLabel =
         new LabelBuilder()

@@ -121,10 +121,6 @@ function buildCharacterModal(
             .setCustomId(customId)
             .setTitle(title);
 
-    // =================================================
-    // NOME
-    // =================================================
-
     const nameInput =
         new TextInputBuilder()
             .setCustomId(
@@ -198,7 +194,7 @@ function buildCharacterModal(
             );
 
     // =================================================
-    // ESTADO PvM / PvP
+    // STATUS
     // =================================================
 
     const currentStatus =
@@ -257,7 +253,7 @@ function buildCharacterModal(
             );
 
     // =================================================
-    // NÍVEL
+    // LEVEL
     // =================================================
 
     const levelInput =
@@ -405,17 +401,6 @@ function readCharacterModal(
                 'character-level',
             )
             .trim();
-
-    console.log(
-        '📋 Dados modal:',
-        {
-            characterName,
-            characterClassValues,
-            characterStatusValues,
-            levelText,
-            mainValues,
-        },
-    );
 
     const characterClass =
         characterClassValues[0];
@@ -680,7 +665,7 @@ function buildCommandsHelpEmbed() {
                 '### ⚔️ Roster',
                 '',
                 '`/roster`',
-                'Mostra todos os jogadores que escolheram PvM ou PvP, mesmo que ainda não tenham adicionado personagens.',
+                'Mostra todos os jogadores que escolheram PvM ou PvP, incluindo quem ainda não adicionou personagens.',
                 '',
                 '### 🛡️ Composição',
                 '',
@@ -1049,16 +1034,22 @@ async function getRosterMembers():
     }
 
     const guild =
-        await client.guilds.fetch(
+        client.guilds.cache.get(
             guildId,
         );
 
-    // Vai buscar todos os membros da guild para que
-    // o roster não dependa da existência de personagens.
-    const discordMembers =
-        await guild.members.fetch();
+    if (!guild) {
+        throw new Error(
+            'Guild não encontrada na cache.',
+        );
+    }
 
-    // Vai buscar as personagens que já existem na BD.
+    // IMPORTANTE:
+    // Não fazer guild.members.fetch() aqui.
+    // Os membros são carregados uma única vez no arranque.
+    const discordMembers =
+        guild.members.cache;
+
     const result =
         await db.query(`
             SELECT
@@ -1171,8 +1162,6 @@ async function getRosterMembers():
                 'pvm';
         }
 
-        // Só aparecem no roster os jogadores que
-        // escolheram explicitamente PvM ou PvP.
         if (!azuriaStatus) {
             continue;
         }
@@ -1274,20 +1263,28 @@ function buildRosterPage(
                 0,
         ).length;
 
+    const descriptionLines = [
+        `**${members.length} jogadores** • **${totalCharacters} personagens**`,
+    ];
+
+    if (
+        membersWithoutCharacters >
+        0
+    ) {
+        descriptionLines.push(
+            `**${membersWithoutCharacters}** ainda sem personagem registada`,
+        );
+    }
+
     const embed =
         new EmbedBuilder()
             .setTitle(
                 '⚔️ Wicked — Roster',
             )
             .setDescription(
-                [
-                    `**${members.length} jogadores** • **${totalCharacters} personagens**`,
-                    membersWithoutCharacters > 0
-                        ? `**${membersWithoutCharacters}** ainda sem personagem registada`
-                        : null,
-                ]
-                    .filter(Boolean)
-                    .join('\n'),
+                descriptionLines.join(
+                    '\n',
+                ),
             )
             .setFooter({
                 text:
@@ -1577,6 +1574,10 @@ client.once(
             `✅ Bot online como ${readyClient.user.tag}`,
         );
 
+        // =================================================
+        // DATABASE
+        // =================================================
+
         try {
             const result =
                 await db.query(
@@ -1591,6 +1592,38 @@ client.once(
         } catch (error) {
             console.error(
                 '❌ PostgreSQL:',
+                error,
+            );
+        }
+
+        // =================================================
+        // MEMBER CACHE
+        // =================================================
+
+        try {
+            const guildId =
+                process.env.DISCORD_GUILD_ID;
+
+            if (!guildId) {
+                throw new Error(
+                    'DISCORD_GUILD_ID não está definido.',
+                );
+            }
+
+            const guild =
+                await client.guilds.fetch(
+                    guildId,
+                );
+
+            // ESTE é o único fetch completo dos membros.
+            await guild.members.fetch();
+
+            console.log(
+                `✅ ${guild.members.cache.size} membros carregados para cache.`,
+            );
+        } catch (error) {
+            console.error(
+                '❌ Não foi possível carregar os membros para cache:',
                 error,
             );
         }
@@ -1755,6 +1788,8 @@ client.on(
         if (
             interaction.isChatInputCommand()
         ) {
+            // /ping
+
             if (
                 interaction.commandName ===
                 'ping'
@@ -1765,6 +1800,8 @@ client.on(
 
                 return;
             }
+
+            // /composicao
 
             if (
                 interaction.commandName ===
@@ -1797,6 +1834,8 @@ client.on(
                 return;
             }
 
+            // /composicao-pvm
+
             if (
                 interaction.commandName ===
                 'composicao-pvm'
@@ -1827,6 +1866,8 @@ client.on(
 
                 return;
             }
+
+            // /roster
 
             if (
                 interaction.commandName ===
@@ -1892,6 +1933,8 @@ client.on(
 
                 return;
             }
+
+            // Apenas /perfil daqui para baixo
 
             if (
                 interaction.commandName !==
@@ -2235,6 +2278,8 @@ client.on(
             await interaction.deferUpdate();
 
             try {
+                // IMPORTANTE:
+                // Isto usa apenas a cache.
                 const members =
                     await getRosterMembers();
 
@@ -2916,11 +2961,6 @@ client.on(
                 'perfil-edit-modal:',
             )
         ) {
-            console.log(
-                '📨 SUBMIT DE EDIÇÃO RECEBIDO:',
-                interaction.customId,
-            );
-
             await interaction.deferReply({
                 flags:
                     MessageFlags.Ephemeral,
@@ -3218,10 +3258,6 @@ client.on(
                         ].join(
                             '\n',
                         ),
-                    );
-
-                    console.log(
-                        `✅ Personagem ${characterName} atualizada para ${characterStatus}.`,
                     );
                 } catch (
                     error: any

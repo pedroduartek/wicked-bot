@@ -75,8 +75,6 @@ const VALID_CLASSES = [
     'Lycan',
 ];
 
-const ROSTER_MEMBERS_PER_PAGE = 5;
-
 // =====================================================
 // TYPES
 // =====================================================
@@ -120,6 +118,10 @@ function buildCharacterModal(
         new ModalBuilder()
             .setCustomId(customId)
             .setTitle(title);
+
+    // =================================================
+    // NOME
+    // =================================================
 
     const nameInput =
         new TextInputBuilder()
@@ -365,11 +367,6 @@ function readCharacterModal(
     interaction:
         ModalSubmitInteraction,
 ) {
-    console.log(
-        '📨 Modal recebido:',
-        interaction.customId,
-    );
-
     const characterName =
         interaction.fields
             .getTextInputValue(
@@ -871,7 +868,6 @@ async function logBotPermissionDiagnostics() {
                     PermissionFlagsBits
                         .Administrator,
             },
-
             {
                 name:
                     'ManageRoles',
@@ -880,7 +876,6 @@ async function logBotPermissionDiagnostics() {
                     PermissionFlagsBits
                         .ManageRoles,
             },
-
             {
                 name:
                     'ManageMessages',
@@ -889,7 +884,6 @@ async function logBotPermissionDiagnostics() {
                     PermissionFlagsBits
                         .ManageMessages,
             },
-
             {
                 name:
                     'ViewChannel',
@@ -898,7 +892,6 @@ async function logBotPermissionDiagnostics() {
                     PermissionFlagsBits
                         .ViewChannel,
             },
-
             {
                 name:
                     'SendMessages',
@@ -907,7 +900,6 @@ async function logBotPermissionDiagnostics() {
                     PermissionFlagsBits
                         .SendMessages,
             },
-
             {
                 name:
                     'EmbedLinks',
@@ -943,7 +935,6 @@ async function logBotPermissionDiagnostics() {
                 id:
                     AZURIA_ROLE_ID,
             },
-
             {
                 label:
                     'Azuria PvP',
@@ -951,7 +942,6 @@ async function logBotPermissionDiagnostics() {
                 id:
                     AZURIA_PVP_ROLE_ID,
             },
-
             {
                 label:
                     'Azuria PvM',
@@ -1044,9 +1034,8 @@ async function getRosterMembers():
         );
     }
 
-    // IMPORTANTE:
-    // Não fazer guild.members.fetch() aqui.
-    // Os membros são carregados uma única vez no arranque.
+    // Não fazemos fetch aqui.
+    // A cache é carregada uma vez no arranque.
     const discordMembers =
         guild.members.cache;
 
@@ -1206,42 +1195,9 @@ async function getRosterMembers():
 // ROSTER EMBED
 // =====================================================
 
-function buildRosterPage(
+function buildRosterEmbed(
     members: RosterMember[],
-    requestedPage: number,
 ) {
-    const totalPages =
-        Math.max(
-            1,
-
-            Math.ceil(
-                members.length /
-                    ROSTER_MEMBERS_PER_PAGE,
-            ),
-        );
-
-    const page =
-        Math.max(
-            0,
-
-            Math.min(
-                requestedPage,
-                totalPages - 1,
-            ),
-        );
-
-    const start =
-        page *
-        ROSTER_MEMBERS_PER_PAGE;
-
-    const pageMembers =
-        members.slice(
-            start,
-
-            start +
-                ROSTER_MEMBERS_PER_PAGE,
-        );
-
     const totalCharacters =
         members.reduce(
             (
@@ -1286,17 +1242,11 @@ function buildRosterPage(
                     '\n',
                 ),
             )
-            .setFooter({
-                text:
-                    `Página ${
-                        page + 1
-                    }/${totalPages}`,
-            })
             .setTimestamp();
 
     for (
         const member
-        of pageMembers
+        of members
     ) {
         let memberStatus =
             '⚪ Sem estado Azuria';
@@ -1371,58 +1321,7 @@ function buildRosterPage(
         });
     }
 
-    return {
-        embed,
-        page,
-        totalPages,
-    };
-}
-
-// =====================================================
-// ROSTER BUTTONS
-// =====================================================
-
-function buildRosterButtons(
-    userId: string,
-    page: number,
-    totalPages: number,
-) {
-    return new ActionRowBuilder<ButtonBuilder>()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId(
-                    `roster-page:${userId}:${
-                        page - 1
-                    }`,
-                )
-                .setLabel(
-                    'Anterior',
-                )
-                .setStyle(
-                    ButtonStyle.Secondary,
-                )
-                .setDisabled(
-                    page === 0,
-                ),
-
-            new ButtonBuilder()
-                .setCustomId(
-                    `roster-page:${userId}:${
-                        page + 1
-                    }`,
-                )
-                .setLabel(
-                    'Seguinte',
-                )
-                .setStyle(
-                    ButtonStyle.Secondary,
-                )
-                .setDisabled(
-                    page >=
-                        totalPages -
-                            1,
-                ),
-        );
+    return embed;
 }
 
 // =====================================================
@@ -1615,7 +1514,7 @@ client.once(
                     guildId,
                 );
 
-            // ESTE é o único fetch completo dos membros.
+            // Único fetch completo dos membros.
             await guild.members.fetch();
 
             console.log(
@@ -1686,6 +1585,10 @@ client.on(
                                 .user.id,
                         );
 
+                // =================================================
+                // PvM
+                // =================================================
+
                 if (
                     interaction.customId ===
                     'azuria-pvm'
@@ -1717,6 +1620,10 @@ client.on(
                     return;
                 }
 
+                // =================================================
+                // PvP
+                // =================================================
+
                 if (
                     interaction.customId ===
                     'azuria-pvp'
@@ -1747,6 +1654,10 @@ client.on(
 
                     return;
                 }
+
+                // =================================================
+                // SAIR
+                // =================================================
 
                 await member.roles.remove([
                     AZURIA_ROLE_ID,
@@ -1788,7 +1699,10 @@ client.on(
         if (
             interaction.isChatInputCommand()
         ) {
+
+            // =================================================
             // /ping
+            // =================================================
 
             if (
                 interaction.commandName ===
@@ -1801,7 +1715,9 @@ client.on(
                 return;
             }
 
+            // =================================================
             // /composicao
+            // =================================================
 
             if (
                 interaction.commandName ===
@@ -1834,7 +1750,9 @@ client.on(
                 return;
             }
 
+            // =================================================
             // /composicao-pvm
+            // =================================================
 
             if (
                 interaction.commandName ===
@@ -1867,7 +1785,9 @@ client.on(
                 return;
             }
 
+            // =================================================
             // /roster
+            // =================================================
 
             if (
                 interaction.commandName ===
@@ -1890,35 +1810,15 @@ client.on(
                         return;
                     }
 
-                    const {
-                        embed,
-                        page,
-                        totalPages,
-                    } =
-                        buildRosterPage(
+                    const embed =
+                        buildRosterEmbed(
                             members,
-                            0,
                         );
 
                     await interaction.editReply({
                         embeds: [
                             embed,
                         ],
-
-                        components:
-                            totalPages >
-                            1
-                                ? [
-                                    buildRosterButtons(
-                                        interaction
-                                            .user.id,
-
-                                        page,
-
-                                        totalPages,
-                                    ),
-                                ]
-                                : [],
                     });
                 } catch (error) {
                     console.error(
@@ -1934,7 +1834,9 @@ client.on(
                 return;
             }
 
-            // Apenas /perfil daqui para baixo
+            // =================================================
+            // APENAS /perfil DAQUI PARA BAIXO
+            // =================================================
 
             if (
                 interaction.commandName !==
@@ -2240,107 +2142,6 @@ client.on(
 
                 return;
             }
-        }
-
-        // =================================================
-        // ROSTER PAGINATION
-        // =================================================
-
-        if (
-            interaction.isButton() &&
-            interaction.customId.startsWith(
-                'roster-page:',
-            )
-        ) {
-            const [
-                ,
-                ownerId,
-                pageText,
-            ] =
-                interaction.customId
-                    .split(':');
-
-            if (
-                interaction.user.id !==
-                ownerId
-            ) {
-                await interaction.reply({
-                    content:
-                        '❌ Só quem executou `/roster` pode mudar esta página.',
-
-                    flags:
-                        MessageFlags.Ephemeral,
-                });
-
-                return;
-            }
-
-            await interaction.deferUpdate();
-
-            try {
-                // IMPORTANTE:
-                // Isto usa apenas a cache.
-                const members =
-                    await getRosterMembers();
-
-                if (
-                    members.length ===
-                    0
-                ) {
-                    await interaction.editReply({
-                        content:
-                            'Ainda ninguém selecionou PvM ou PvP no Azuria.',
-
-                        embeds:
-                            [],
-
-                        components:
-                            [],
-                    });
-
-                    return;
-                }
-
-                const {
-                    embed,
-                    page,
-                    totalPages,
-                } =
-                    buildRosterPage(
-                        members,
-                        Number(
-                            pageText,
-                        ),
-                    );
-
-                await interaction.editReply({
-                    content:
-                        null,
-
-                    embeds: [
-                        embed,
-                    ],
-
-                    components:
-                        totalPages >
-                        1
-                            ? [
-                                buildRosterButtons(
-                                    ownerId,
-                                    page,
-                                    totalPages,
-                                ),
-                            ]
-                            : [],
-                });
-            } catch (error) {
-                console.error(
-                    '❌ Erro paginação roster:',
-                    error,
-                );
-            }
-
-            return;
         }
 
         // =================================================
@@ -3082,6 +2883,10 @@ client.on(
                             true;
                     }
 
+                    // =================================================
+                    // MAIN
+                    // =================================================
+
                     if (
                         finalMain
                     ) {
@@ -3132,7 +2937,13 @@ client.on(
                                     .user.id,
                             ],
                         );
-                    } else if (
+                    }
+
+                    // =================================================
+                    // ERA MAIN, DEIXA DE SER
+                    // =================================================
+
+                    else if (
                         current.is_main
                     ) {
                         await dbClient.query(
@@ -3210,7 +3021,13 @@ client.on(
                                 ],
                             );
                         }
-                    } else {
+                    }
+
+                    // =================================================
+                    // CONTINUA SECUNDÁRIA
+                    // =================================================
+
+                    else {
                         await dbClient.query(
                             `
                             UPDATE characters

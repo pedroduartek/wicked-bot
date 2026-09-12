@@ -115,6 +115,10 @@ type CharacterData = {
 type RosterMember = {
     discord_id: string;
     discord_username: string;
+    azuria_status:
+        | 'pvm'
+        | 'pvp'
+        | null;
     characters: CharacterData[];
 };
 
@@ -1424,6 +1428,8 @@ async function getRosterMembers():
                 discord_username:
                     row.discord_username,
 
+                azuria_status: null,
+
                 characters: [],
             };
 
@@ -1447,6 +1453,53 @@ async function getRosterMembers():
             is_main:
                 row.is_main,
         });
+    }
+
+    const guildId =
+        process.env.DISCORD_GUILD_ID;
+
+    if (!guildId) {
+        throw new Error(
+            'DISCORD_GUILD_ID não está definido.',
+        );
+    }
+
+    const guild =
+        await client.guilds.fetch(
+            guildId,
+        );
+
+    for (
+        const member
+        of members.values()
+    ) {
+        try {
+            const discordMember =
+                await guild.members.fetch(
+                    member.discord_id,
+                );
+
+            if (
+                discordMember.roles.cache.has(
+                    AZURIA_PVP_ROLE_ID,
+                )
+            ) {
+                member.azuria_status =
+                    'pvp';
+            } else if (
+                discordMember.roles.cache.has(
+                    AZURIA_PVM_ROLE_ID,
+                )
+            ) {
+                member.azuria_status =
+                    'pvm';
+            }
+        } catch {
+            // O utilizador pode já não estar
+            // no servidor.
+            member.azuria_status =
+                null;
+        }
     }
 
     return Array.from(
@@ -1552,12 +1605,31 @@ function buildRosterPage(
                 ) + '...';
         }
 
-        embed.addFields({
-            name:
-                `👤 ${member.discord_username}`,
-            value,
-            inline: false,
-        });
+        let statusText =
+    '⚪ Sem estado Azuria';
+
+if (
+    member.azuria_status ===
+    'pvm'
+) {
+    statusText =
+        '🐉 PvM';
+}
+
+if (
+    member.azuria_status ===
+    'pvp'
+) {
+    statusText =
+        '⚔️ PvP';
+}
+
+embed.addFields({
+    name:
+        `👤 ${member.discord_username} — ${statusText}`,
+    value,
+    inline: false,
+});
     }
 
     return {

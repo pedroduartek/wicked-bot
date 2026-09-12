@@ -6,8 +6,9 @@
   "scripts": {
     "start": "tsx src/index.ts",
     "dev": "tsx src/index.ts",
-    "deploy": "tsx src/deploy-commands.ts"
-},
+    "deploy": "tsx src/deploy-commands.ts",
+    "db:init": "tsx src/init-db.ts"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",

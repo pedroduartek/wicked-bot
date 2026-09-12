@@ -201,40 +201,48 @@ function buildCharacterModal(
     // ESTADO PvM / PvP
     // =================================================
 
-	const currentStatus =
-		character?.character_status;
+    const currentStatus =
+        character?.character_status;
 
-	const statusSelect =
-		new StringSelectMenuBuilder()
-			.setCustomId(
-				'character-status',
-			)
-			.setPlaceholder(
-				'Seleciona PvM ou PvP',
-			)
-			.setRequired(true)
-			.addOptions(
-				{
-					label: 'PvP',
-					description:
-						'Personagem pronta para PvP',
-					value: 'pvp',
+    const statusSelect =
+        new StringSelectMenuBuilder()
+            .setCustomId(
+                'character-status',
+            )
+            .setPlaceholder(
+                'Seleciona PvM ou PvP',
+            )
+            .setRequired(true)
+            .addOptions(
+                {
+                    label:
+                        'PvP',
 
-					default:
-						currentStatus ===
-						'pvp',
-				},
-				{
-					label: 'PvM',
-					description:
-						'Personagem em progressão ou usada para PvM',
-					value: 'pvm',
+                    description:
+                        'Personagem pronta para PvP',
 
-					default:
-						currentStatus ===
-						'pvm',
-				},
-			);
+                    value:
+                        'pvp',
+
+                    default:
+                        currentStatus ===
+                        'pvp',
+                },
+                {
+                    label:
+                        'PvM',
+
+                    description:
+                        'Personagem em progressão ou usada para PvM',
+
+                    value:
+                        'pvm',
+
+                    default:
+                        currentStatus ===
+                        'pvm',
+                },
+            );
 
     const statusLabel =
         new LabelBuilder()
@@ -325,8 +333,8 @@ function buildCharacterModal(
 
                     default:
                         character
-                            ?.is_main !==
-                        true,
+                            ?.is_main ===
+                        false,
                 },
             );
 
@@ -341,10 +349,6 @@ function buildCharacterModal(
             .setStringSelectMenuComponent(
                 mainSelect,
             );
-
-    // =================================================
-    // MODAL
-    // =================================================
 
     modal.addLabelComponents(
         nameLabel,
@@ -676,7 +680,7 @@ function buildCommandsHelpEmbed() {
                 '### ⚔️ Roster',
                 '',
                 '`/roster`',
-                'Mostra todos os membros e personagens registadas.',
+                'Mostra todos os jogadores que escolheram PvM ou PvP, mesmo que ainda não tenham adicionado personagens.',
                 '',
                 '### 🛡️ Composição',
                 '',
@@ -1035,91 +1039,6 @@ function getCharacterStatusText(
 
 async function getRosterMembers():
     Promise<RosterMember[]> {
-    const result =
-        await db.query(`
-            SELECT
-                m.discord_id,
-                m.discord_username,
-                c.id,
-                c.character_name,
-                c.character_class,
-                c.character_status,
-                c.level,
-                c.is_main
-
-            FROM members m
-
-            INNER JOIN characters c
-                ON c.discord_id =
-                    m.discord_id
-
-            ORDER BY
-                LOWER(
-                    m.discord_username
-                ) ASC,
-                c.is_main DESC,
-                LOWER(
-                    c.character_name
-                ) ASC
-        `);
-
-    const members =
-        new Map<
-            string,
-            RosterMember
-        >();
-
-    for (
-        const row
-        of result.rows
-    ) {
-        let member =
-            members.get(
-                row.discord_id,
-            );
-
-        if (!member) {
-            member = {
-                discord_id:
-                    row.discord_id,
-
-                discord_username:
-                    row.discord_username,
-
-                azuria_status:
-                    null,
-
-                characters:
-                    [],
-            };
-
-            members.set(
-                row.discord_id,
-                member,
-            );
-        }
-
-        member.characters.push({
-            id:
-                row.id,
-
-            character_name:
-                row.character_name,
-
-            character_class:
-                row.character_class,
-
-            character_status:
-                row.character_status,
-
-            level:
-                row.level,
-
-            is_main:
-                row.is_main,
-        });
-    }
-
     const guildId =
         process.env.DISCORD_GUILD_ID;
 
@@ -1134,40 +1053,164 @@ async function getRosterMembers():
             guildId,
         );
 
-    for (
-        const member
-        of members.values()
-    ) {
-        try {
-            const discordMember =
-                await guild.members.fetch(
-                    member.discord_id,
-                );
+    // Vai buscar todos os membros da guild para que
+    // o roster não dependa da existência de personagens.
+    const discordMembers =
+        await guild.members.fetch();
 
-            if (
-                discordMember.roles.cache.has(
-                    AZURIA_PVP_ROLE_ID,
-                )
-            ) {
-                member.azuria_status =
-                    'pvp';
-            } else if (
-                discordMember.roles.cache.has(
-                    AZURIA_PVM_ROLE_ID,
-                )
-            ) {
-                member.azuria_status =
-                    'pvm';
-            }
-        } catch {
-            member.azuria_status =
-                null;
+    // Vai buscar as personagens que já existem na BD.
+    const result =
+        await db.query(`
+            SELECT
+                m.discord_id,
+                m.discord_username,
+                c.id,
+                c.character_name,
+                c.character_class,
+                c.character_status,
+                c.level,
+                c.is_main
+
+            FROM members m
+
+            LEFT JOIN characters c
+                ON c.discord_id =
+                    m.discord_id
+
+            ORDER BY
+                LOWER(
+                    m.discord_username
+                ) ASC,
+                c.is_main DESC,
+                LOWER(
+                    c.character_name
+                ) ASC
+        `);
+
+    const charactersByMember =
+        new Map<
+            string,
+            CharacterData[]
+        >();
+
+    for (
+        const row
+        of result.rows
+    ) {
+        if (!row.id) {
+            continue;
         }
+
+        if (
+            !charactersByMember.has(
+                row.discord_id,
+            )
+        ) {
+            charactersByMember.set(
+                row.discord_id,
+                [],
+            );
+        }
+
+        charactersByMember
+            .get(
+                row.discord_id,
+            )!
+            .push({
+                id:
+                    row.id,
+
+                character_name:
+                    row.character_name,
+
+                character_class:
+                    row.character_class,
+
+                character_status:
+                    row.character_status,
+
+                level:
+                    row.level,
+
+                is_main:
+                    row.is_main,
+            });
     }
 
-    return Array.from(
-        members.values(),
+    const rosterMembers:
+        RosterMember[] = [];
+
+    for (
+        const discordMember
+        of discordMembers.values()
+    ) {
+        if (
+            discordMember.user.bot
+        ) {
+            continue;
+        }
+
+        let azuriaStatus:
+            CharacterStatus |
+            null =
+            null;
+
+        if (
+            discordMember.roles.cache.has(
+                AZURIA_PVP_ROLE_ID,
+            )
+        ) {
+            azuriaStatus =
+                'pvp';
+        } else if (
+            discordMember.roles.cache.has(
+                AZURIA_PVM_ROLE_ID,
+            )
+        ) {
+            azuriaStatus =
+                'pvm';
+        }
+
+        // Só aparecem no roster os jogadores que
+        // escolheram explicitamente PvM ou PvP.
+        if (!azuriaStatus) {
+            continue;
+        }
+
+        rosterMembers.push({
+            discord_id:
+                discordMember.id,
+
+            discord_username:
+                discordMember.user
+                    .username,
+
+            azuria_status:
+                azuriaStatus,
+
+            characters:
+                charactersByMember.get(
+                    discordMember.id,
+                ) ?? [],
+        });
+    }
+
+    rosterMembers.sort(
+        (
+            a,
+            b,
+        ) =>
+            a.discord_username.localeCompare(
+                b.discord_username,
+                'pt',
+                {
+                    sensitivity:
+                        'base',
+                },
+            ),
     );
+
+    return rosterMembers;
 }
 
 // =====================================================
@@ -1224,14 +1267,27 @@ function buildRosterPage(
             0,
         );
 
+    const membersWithoutCharacters =
+        members.filter(
+            member =>
+                member.characters.length ===
+                0,
+        ).length;
+
     const embed =
         new EmbedBuilder()
             .setTitle(
                 '⚔️ Wicked — Roster',
             )
             .setDescription(
-                `**${members.length} membros** • ` +
-                `**${totalCharacters} personagens**`,
+                [
+                    `**${members.length} jogadores** • **${totalCharacters} personagens**`,
+                    membersWithoutCharacters > 0
+                        ? `**${membersWithoutCharacters}** ainda sem personagem registada`
+                        : null,
+                ]
+                    .filter(Boolean)
+                    .join('\n'),
             )
             .setFooter({
                 text:
@@ -1288,9 +1344,12 @@ function buildRosterPage(
             );
 
         let value =
-            characterLines.join(
-                '\n',
-            );
+            characterLines.length >
+            0
+                ? characterLines.join(
+                    '\n',
+                )
+                : '*Ainda não adicionou nenhuma personagem.*';
 
         if (
             value.length >
@@ -1594,8 +1653,6 @@ client.on(
                                 .user.id,
                         );
 
-                // PvM
-
                 if (
                     interaction.customId ===
                     'azuria-pvm'
@@ -1627,8 +1684,6 @@ client.on(
                     return;
                 }
 
-                // PvP
-
                 if (
                     interaction.customId ===
                     'azuria-pvp'
@@ -1659,8 +1714,6 @@ client.on(
 
                     return;
                 }
-
-                // SAIR
 
                 await member.roles.remove([
                     AZURIA_ROLE_ID,
@@ -1702,9 +1755,6 @@ client.on(
         if (
             interaction.isChatInputCommand()
         ) {
-
-            // /ping
-
             if (
                 interaction.commandName ===
                 'ping'
@@ -1715,8 +1765,6 @@ client.on(
 
                 return;
             }
-
-            // /composicao
 
             if (
                 interaction.commandName ===
@@ -1749,8 +1797,6 @@ client.on(
                 return;
             }
 
-            // /composicao-pvm
-
             if (
                 interaction.commandName ===
                 'composicao-pvm'
@@ -1782,8 +1828,6 @@ client.on(
                 return;
             }
 
-            // /roster
-
             if (
                 interaction.commandName ===
                 'roster'
@@ -1799,7 +1843,7 @@ client.on(
                         0
                     ) {
                         await interaction.editReply(
-                            'Ainda não existem personagens registadas no roster.',
+                            'Ainda ninguém selecionou PvM ou PvP no Azuria.',
                         );
 
                         return;
@@ -1826,8 +1870,7 @@ client.on(
                                 ? [
                                     buildRosterButtons(
                                         interaction
-                                            .user
-                                            .id,
+                                            .user.id,
 
                                         page,
 
@@ -1849,8 +1892,6 @@ client.on(
 
                 return;
             }
-
-            // Apenas /perfil a partir daqui
 
             if (
                 interaction.commandName !==
@@ -2203,7 +2244,7 @@ client.on(
                 ) {
                     await interaction.editReply({
                         content:
-                            'Ainda não existem personagens registadas no roster.',
+                            'Ainda ninguém selecionou PvM ou PvP no Azuria.',
 
                         embeds:
                             [],
@@ -3001,10 +3042,6 @@ client.on(
                             true;
                     }
 
-                    // =====================================
-                    // PASSA A MAIN
-                    // =====================================
-
                     if (
                         finalMain
                     ) {
@@ -3055,13 +3092,7 @@ client.on(
                                     .user.id,
                             ],
                         );
-                    }
-
-                    // =====================================
-                    // ERA MAIN E DEIXA DE SER
-                    // =====================================
-
-                    else if (
+                    } else if (
                         current.is_main
                     ) {
                         await dbClient.query(
@@ -3139,13 +3170,7 @@ client.on(
                                 ],
                             );
                         }
-                    }
-
-                    // =====================================
-                    // CONTINUA SECUNDÁRIA
-                    // =====================================
-
-                    else {
+                    } else {
                         await dbClient.query(
                             `
                             UPDATE characters

@@ -209,6 +209,9 @@ function buildCharacterModal(
     // Estado PvM / PvP
     // -------------------------------------------------
 
+    const currentStatus =
+        character?.character_status;
+
     const statusSelect =
         new StringSelectMenuBuilder()
             .setCustomId(
@@ -228,8 +231,7 @@ function buildCharacterModal(
                     value: 'pvp',
 
                     default:
-                        character
-                            ?.character_status ===
+                        currentStatus ===
                         'pvp',
                 },
                 {
@@ -238,10 +240,13 @@ function buildCharacterModal(
                         'Personagem em progressão ou usada para PvM',
                     value: 'pvm',
 
+                    // Personagens antigas que ainda tenham
+                    // character_status = NULL ficam com PvM
+                    // pré-selecionado ao abrir o modal.
                     default:
-                        character
-                            ?.character_status ===
-                        'pvm',
+                        currentStatus ===
+                            'pvm' ||
+                        !currentStatus,
                 },
             );
 
@@ -367,11 +372,22 @@ function readCharacterModal(
                 'character-class',
             )[0];
 
-    const characterStatus =
+    const statusValues =
         interaction.fields
             .getStringSelectValues(
                 'character-status',
-            )[0] as CharacterStatus;
+            );
+
+    const characterStatus =
+        statusValues[0] as
+            CharacterStatus |
+            undefined;
+
+    if (!characterStatus) {
+        throw new Error(
+            'character-status não foi preenchido.',
+        );
+    }
 
     const levelText =
         interaction.fields
@@ -1529,10 +1545,6 @@ client.on(
                                 .id,
                         );
 
-                // =====================================
-                // PvM
-                // =====================================
-
                 if (
                     interaction.customId ===
                     'azuria-pvm'
@@ -1561,16 +1573,8 @@ client.on(
                             ),
                     });
 
-                    console.log(
-                        `🐉 ${interaction.user.username} → Azuria PvM`,
-                    );
-
                     return;
                 }
-
-                // =====================================
-                // PvP
-                // =====================================
 
                 if (
                     interaction.customId ===
@@ -1600,16 +1604,8 @@ client.on(
                             ),
                     });
 
-                    console.log(
-                        `⚔️ ${interaction.user.username} → Azuria PvP`,
-                    );
-
                     return;
                 }
-
-                // =====================================
-                // SAIR
-                // =====================================
 
                 if (
                     interaction.customId ===
@@ -1635,10 +1631,6 @@ client.on(
                             ),
                     });
 
-                    console.log(
-                        `❌ ${interaction.user.username} saiu do Azuria`,
-                    );
-
                     return;
                 }
             } catch (error) {
@@ -1662,11 +1654,6 @@ client.on(
         if (
             interaction.isChatInputCommand()
         ) {
-
-            // =========================================
-            // /ping
-            // =========================================
-
             if (
                 interaction.commandName ===
                 'ping'
@@ -1677,10 +1664,6 @@ client.on(
 
                 return;
             }
-
-            // =========================================
-            // /composicao
-            // =========================================
 
             if (
                 interaction.commandName ===
@@ -1713,10 +1696,6 @@ client.on(
                 return;
             }
 
-            // =========================================
-            // /composicao-pvm
-            // =========================================
-
             if (
                 interaction.commandName ===
                 'composicao-pvm'
@@ -1747,10 +1726,6 @@ client.on(
 
                 return;
             }
-
-            // =========================================
-            // /roster
-            // =========================================
 
             if (
                 interaction.commandName ===
@@ -1818,10 +1793,6 @@ client.on(
                 return;
             }
 
-            // =========================================
-            // /perfil
-            // =========================================
-
             if (
                 interaction.commandName !==
                 'perfil'
@@ -1832,10 +1803,6 @@ client.on(
             const subcommand =
                 interaction.options
                     .getSubcommand();
-
-            // =========================================
-            // /perfil adicionar
-            // =========================================
 
             if (
                 subcommand ===
@@ -1850,10 +1817,6 @@ client.on(
 
                 return;
             }
-
-            // =========================================
-            // /perfil listar
-            // =========================================
 
             if (
                 subcommand ===
@@ -1961,10 +1924,6 @@ client.on(
                 return;
             }
 
-            // =========================================
-            // /perfil editar
-            // =========================================
-
             if (
                 subcommand ===
                 'editar'
@@ -2046,10 +2005,6 @@ client.on(
 
                 return;
             }
-
-            // =========================================
-            // /perfil remover
-            // =========================================
 
             if (
                 subcommand ===
@@ -2632,204 +2587,215 @@ client.on(
                     MessageFlags.Ephemeral,
             });
 
-            const {
-                characterName,
-                characterClass,
-                characterStatus,
-                level,
-                requestedMain,
-            } =
-                readCharacterModal(
-                    interaction,
-                );
-
-            const validationError =
-                validateCharacter(
+            try {
+                const {
                     characterName,
                     characterClass,
                     characterStatus,
                     level,
-                );
-
-            if (
-                validationError
-            ) {
-                await interaction.editReply(
-                    validationError,
-                );
-
-                return;
-            }
-
-            const dbClient =
-                await db.connect();
-
-            try {
-                await dbClient.query(
-                    'BEGIN',
-                );
-
-                await dbClient.query(
-                    `
-                    INSERT INTO members (
-                        discord_id,
-                        discord_username
-                    )
-
-                    VALUES (
-                        $1,
-                        $2
-                    )
-
-                    ON CONFLICT (
-                        discord_id
-                    )
-
-                    DO UPDATE SET
-                        discord_username =
-                            EXCLUDED.discord_username,
-
-                        updated_at =
-                            NOW()
-                    `,
-                    [
-                        interaction
-                            .user.id,
-
-                        interaction
-                            .user
-                            .username,
-                    ],
-                );
-
-                const countResult =
-                    await dbClient.query(
-                        `
-                        SELECT
-                            COUNT(*)::INTEGER AS count
-
-                        FROM characters
-
-                        WHERE
-                            discord_id = $1
-                        `,
-                        [
-                            interaction
-                                .user
-                                .id,
-                        ],
+                    requestedMain,
+                } =
+                    readCharacterModal(
+                        interaction,
                     );
 
-                const makeMain =
-                    countResult
-                        .rows[0]
-                        .count ===
-                        0 ||
-                    requestedMain;
-
-                if (
-                    makeMain
-                ) {
-                    await dbClient.query(
-                        `
-                        UPDATE characters
-
-                        SET
-                            is_main = FALSE,
-                            updated_at = NOW()
-
-                        WHERE
-                            discord_id = $1
-                            AND is_main = TRUE
-                        `,
-                        [
-                            interaction
-                                .user
-                                .id,
-                        ],
-                    );
-                }
-
-                await dbClient.query(
-                    `
-                    INSERT INTO characters (
-                        discord_id,
-                        character_name,
-                        character_class,
-                        character_status,
-                        level,
-                        is_main
-                    )
-
-                    VALUES (
-                        $1,
-                        $2,
-                        $3,
-                        $4,
-                        $5,
-                        $6
-                    )
-                    `,
-                    [
-                        interaction
-                            .user.id,
-
+                const validationError =
+                    validateCharacter(
                         characterName,
                         characterClass,
                         characterStatus,
                         level,
-                        makeMain,
-                    ],
-                );
-
-                await dbClient.query(
-                    'COMMIT',
-                );
-
-                await interaction.editReply(
-                    [
-                        '✅ **Personagem adicionada!**',
-                        '',
-                        `**Nome:** ${characterName}`,
-                        `**Classe:** ${characterClass}`,
-                        `**Estado:** ${getCharacterStatusText(characterStatus)}`,
-                        `**Nível:** ${level}`,
-                        `**Principal:** ${
-                            makeMain
-                                ? 'Sim ⭐'
-                                : 'Não'
-                        }`,
-                    ].join(
-                        '\n',
-                    ),
-                );
-            } catch (
-                error: any
-            ) {
-                await dbClient.query(
-                    'ROLLBACK',
-                );
+                    );
 
                 if (
-                    error.code ===
-                    '23505'
+                    validationError
                 ) {
                     await interaction.editReply(
-                        `❌ Já existe uma personagem chamada **${characterName}** registada.`,
+                        validationError,
                     );
 
                     return;
                 }
 
+                const dbClient =
+                    await db.connect();
+
+                try {
+                    await dbClient.query(
+                        'BEGIN',
+                    );
+
+                    await dbClient.query(
+                        `
+                        INSERT INTO members (
+                            discord_id,
+                            discord_username
+                        )
+
+                        VALUES (
+                            $1,
+                            $2
+                        )
+
+                        ON CONFLICT (
+                            discord_id
+                        )
+
+                        DO UPDATE SET
+                            discord_username =
+                                EXCLUDED.discord_username,
+
+                            updated_at =
+                                NOW()
+                        `,
+                        [
+                            interaction
+                                .user.id,
+
+                            interaction
+                                .user
+                                .username,
+                        ],
+                    );
+
+                    const countResult =
+                        await dbClient.query(
+                            `
+                            SELECT
+                                COUNT(*)::INTEGER AS count
+
+                            FROM characters
+
+                            WHERE
+                                discord_id = $1
+                            `,
+                            [
+                                interaction
+                                    .user
+                                    .id,
+                            ],
+                        );
+
+                    const makeMain =
+                        countResult
+                            .rows[0]
+                            .count ===
+                            0 ||
+                        requestedMain;
+
+                    if (
+                        makeMain
+                    ) {
+                        await dbClient.query(
+                            `
+                            UPDATE characters
+
+                            SET
+                                is_main = FALSE,
+                                updated_at = NOW()
+
+                            WHERE
+                                discord_id = $1
+                                AND is_main = TRUE
+                            `,
+                            [
+                                interaction
+                                    .user
+                                    .id,
+                            ],
+                        );
+                    }
+
+                    await dbClient.query(
+                        `
+                        INSERT INTO characters (
+                            discord_id,
+                            character_name,
+                            character_class,
+                            character_status,
+                            level,
+                            is_main
+                        )
+
+                        VALUES (
+                            $1,
+                            $2,
+                            $3,
+                            $4,
+                            $5,
+                            $6
+                        )
+                        `,
+                        [
+                            interaction
+                                .user.id,
+
+                            characterName,
+                            characterClass,
+                            characterStatus,
+                            level,
+                            makeMain,
+                        ],
+                    );
+
+                    await dbClient.query(
+                        'COMMIT',
+                    );
+
+                    await interaction.editReply(
+                        [
+                            '✅ **Personagem adicionada!**',
+                            '',
+                            `**Nome:** ${characterName}`,
+                            `**Classe:** ${characterClass}`,
+                            `**Estado:** ${getCharacterStatusText(characterStatus)}`,
+                            `**Nível:** ${level}`,
+                            `**Principal:** ${
+                                makeMain
+                                    ? 'Sim ⭐'
+                                    : 'Não'
+                            }`,
+                        ].join(
+                            '\n',
+                        ),
+                    );
+                } catch (
+                    error: any
+                ) {
+                    await dbClient.query(
+                        'ROLLBACK',
+                    );
+
+                    if (
+                        error.code ===
+                        '23505'
+                    ) {
+                        await interaction.editReply(
+                            `❌ Já existe uma personagem chamada **${characterName}** registada.`,
+                        );
+
+                        return;
+                    }
+
+                    console.error(
+                        error,
+                    );
+
+                    await interaction.editReply(
+                        '❌ Ocorreu um erro ao guardar a personagem.',
+                    );
+                } finally {
+                    dbClient.release();
+                }
+            } catch (error) {
                 console.error(
+                    '❌ Erro ao ler modal:',
                     error,
                 );
 
                 await interaction.editReply(
-                    '❌ Ocorreu um erro ao guardar a personagem.',
+                    '❌ Não foi possível ler os dados da personagem. Confirma o estado PvM/PvP e tenta novamente.',
                 );
-            } finally {
-                dbClient.release();
             }
 
             return;
@@ -2854,341 +2820,336 @@ client.on(
                 interaction.customId
                     .split(':')[1];
 
-            const {
-                characterName,
-                characterClass,
-                characterStatus,
-                level,
-                requestedMain,
-            } =
-                readCharacterModal(
-                    interaction,
-                );
-
-            const validationError =
-                validateCharacter(
+            try {
+                const {
                     characterName,
                     characterClass,
                     characterStatus,
                     level,
-                );
+                    requestedMain,
+                } =
+                    readCharacterModal(
+                        interaction,
+                    );
 
-            if (
-                validationError
-            ) {
-                await interaction.editReply(
-                    validationError,
-                );
-
-                return;
-            }
-
-            const dbClient =
-                await db.connect();
-
-            try {
-                await dbClient.query(
-                    'BEGIN',
-                );
-
-                const currentResult =
-                    await dbClient.query(
-                        `
-                        SELECT
-                            id,
-                            is_main
-
-                        FROM characters
-
-                        WHERE
-                            id = $1
-                            AND discord_id = $2
-
-                        FOR UPDATE
-                        `,
-                        [
-                            characterId,
-                            interaction
-                                .user.id,
-                        ],
+                const validationError =
+                    validateCharacter(
+                        characterName,
+                        characterClass,
+                        characterStatus,
+                        level,
                     );
 
                 if (
-                    currentResult
-                        .rows.length ===
-                    0
+                    validationError
                 ) {
-                    await dbClient.query(
-                        'ROLLBACK',
-                    );
-
                     await interaction.editReply(
-                        '❌ Essa personagem já não existe.',
+                        validationError,
                     );
 
                     return;
                 }
 
-                const current =
-                    currentResult
-                        .rows[0];
+                const dbClient =
+                    await db.connect();
 
-                const countResult =
+                try {
                     await dbClient.query(
-                        `
-                        SELECT
-                            COUNT(*)::INTEGER AS count
-
-                        FROM characters
-
-                        WHERE
-                            discord_id = $1
-                        `,
-                        [
-                            interaction
-                                .user.id,
-                        ],
+                        'BEGIN',
                     );
 
-                const characterCount =
-                    countResult
-                        .rows[0]
-                        .count;
-
-                let finalMain =
-                    requestedMain;
-
-                if (
-                    characterCount ===
-                    1
-                ) {
-                    finalMain =
-                        true;
-                }
-
-                // =====================================
-                // Vai ser Main
-                // =====================================
-
-                if (
-                    finalMain
-                ) {
-                    await dbClient.query(
-                        `
-                        UPDATE characters
-
-                        SET
-                            is_main = FALSE,
-                            updated_at = NOW()
-
-                        WHERE
-                            discord_id = $1
-                            AND id <> $2
-                            AND is_main = TRUE
-                        `,
-                        [
-                            interaction
-                                .user.id,
-
-                            characterId,
-                        ],
-                    );
-
-                    await dbClient.query(
-                        `
-                        UPDATE characters
-
-                        SET
-                            character_name = $1,
-                            character_class = $2,
-                            character_status = $3,
-                            level = $4,
-                            is_main = TRUE,
-                            updated_at = NOW()
-
-                        WHERE
-                            id = $5
-                            AND discord_id = $6
-                        `,
-                        [
-                            characterName,
-                            characterClass,
-                            characterStatus,
-                            level,
-                            characterId,
-                            interaction
-                                .user.id,
-                        ],
-                    );
-                }
-
-                // =====================================
-                // Era Main e deixou de ser
-                // =====================================
-
-                else if (
-                    current.is_main
-                ) {
-                    await dbClient.query(
-                        `
-                        UPDATE characters
-
-                        SET
-                            character_name = $1,
-                            character_class = $2,
-                            character_status = $3,
-                            level = $4,
-                            is_main = FALSE,
-                            updated_at = NOW()
-
-                        WHERE
-                            id = $5
-                            AND discord_id = $6
-                        `,
-                        [
-                            characterName,
-                            characterClass,
-                            characterStatus,
-                            level,
-                            characterId,
-                            interaction
-                                .user.id,
-                        ],
-                    );
-
-                    const replacement =
+                    const currentResult =
                         await dbClient.query(
                             `
                             SELECT
-                                id
+                                id,
+                                is_main
+
+                            FROM characters
+
+                            WHERE
+                                id = $1
+                                AND discord_id = $2
+
+                            FOR UPDATE
+                            `,
+                            [
+                                characterId,
+                                interaction
+                                    .user.id,
+                            ],
+                        );
+
+                    if (
+                        currentResult
+                            .rows.length ===
+                        0
+                    ) {
+                        await dbClient.query(
+                            'ROLLBACK',
+                        );
+
+                        await interaction.editReply(
+                            '❌ Essa personagem já não existe.',
+                        );
+
+                        return;
+                    }
+
+                    const current =
+                        currentResult
+                            .rows[0];
+
+                    const countResult =
+                        await dbClient.query(
+                            `
+                            SELECT
+                                COUNT(*)::INTEGER AS count
 
                             FROM characters
 
                             WHERE
                                 discord_id = $1
-                                AND id <> $2
-
-                            ORDER BY
-                                created_at ASC,
-                                id ASC
-
-                            LIMIT 1
                             `,
                             [
                                 interaction
-                                    .user
-                                    .id,
-
-                                characterId,
+                                    .user.id,
                             ],
                         );
 
+                    const characterCount =
+                        countResult
+                            .rows[0]
+                            .count;
+
+                    let finalMain =
+                        requestedMain;
+
                     if (
-                        replacement
-                            .rows
-                            .length >
-                        0
+                        characterCount ===
+                        1
+                    ) {
+                        finalMain =
+                            true;
+                    }
+
+                    if (
+                        finalMain
                     ) {
                         await dbClient.query(
                             `
                             UPDATE characters
 
                             SET
+                                is_main = FALSE,
+                                updated_at = NOW()
+
+                            WHERE
+                                discord_id = $1
+                                AND id <> $2
+                                AND is_main = TRUE
+                            `,
+                            [
+                                interaction
+                                    .user.id,
+
+                                characterId,
+                            ],
+                        );
+
+                        await dbClient.query(
+                            `
+                            UPDATE characters
+
+                            SET
+                                character_name = $1,
+                                character_class = $2,
+                                character_status = $3,
+                                level = $4,
                                 is_main = TRUE,
                                 updated_at = NOW()
 
                             WHERE
-                                id = $1
+                                id = $5
+                                AND discord_id = $6
                             `,
                             [
-                                replacement
-                                    .rows[0]
-                                    .id,
+                                characterName,
+                                characterClass,
+                                characterStatus,
+                                level,
+                                characterId,
+                                interaction
+                                    .user.id,
+                            ],
+                        );
+                    } else if (
+                        current.is_main
+                    ) {
+                        await dbClient.query(
+                            `
+                            UPDATE characters
+
+                            SET
+                                character_name = $1,
+                                character_class = $2,
+                                character_status = $3,
+                                level = $4,
+                                is_main = FALSE,
+                                updated_at = NOW()
+
+                            WHERE
+                                id = $5
+                                AND discord_id = $6
+                            `,
+                            [
+                                characterName,
+                                characterClass,
+                                characterStatus,
+                                level,
+                                characterId,
+                                interaction
+                                    .user.id,
+                            ],
+                        );
+
+                        const replacement =
+                            await dbClient.query(
+                                `
+                                SELECT
+                                    id
+
+                                FROM characters
+
+                                WHERE
+                                    discord_id = $1
+                                    AND id <> $2
+
+                                ORDER BY
+                                    created_at ASC,
+                                    id ASC
+
+                                LIMIT 1
+                                `,
+                                [
+                                    interaction
+                                        .user
+                                        .id,
+
+                                    characterId,
+                                ],
+                            );
+
+                        if (
+                            replacement
+                                .rows
+                                .length >
+                            0
+                        ) {
+                            await dbClient.query(
+                                `
+                                UPDATE characters
+
+                                SET
+                                    is_main = TRUE,
+                                    updated_at = NOW()
+
+                                WHERE
+                                    id = $1
+                                `,
+                                [
+                                    replacement
+                                        .rows[0]
+                                        .id,
+                                ],
+                            );
+                        }
+                    } else {
+                        await dbClient.query(
+                            `
+                            UPDATE characters
+
+                            SET
+                                character_name = $1,
+                                character_class = $2,
+                                character_status = $3,
+                                level = $4,
+                                updated_at = NOW()
+
+                            WHERE
+                                id = $5
+                                AND discord_id = $6
+                            `,
+                            [
+                                characterName,
+                                characterClass,
+                                characterStatus,
+                                level,
+                                characterId,
+                                interaction
+                                    .user.id,
                             ],
                         );
                     }
-                }
 
-                // =====================================
-                // Continua secundária
-                // =====================================
-
-                else {
                     await dbClient.query(
-                        `
-                        UPDATE characters
-
-                        SET
-                            character_name = $1,
-                            character_class = $2,
-                            character_status = $3,
-                            level = $4,
-                            updated_at = NOW()
-
-                        WHERE
-                            id = $5
-                            AND discord_id = $6
-                        `,
-                        [
-                            characterName,
-                            characterClass,
-                            characterStatus,
-                            level,
-                            characterId,
-                            interaction
-                                .user.id,
-                        ],
+                        'COMMIT',
                     );
-                }
 
-                await dbClient.query(
-                    'COMMIT',
-                );
-
-                await interaction.editReply(
-                    [
-                        '✅ **Personagem atualizada!**',
-                        '',
-                        `**Nome:** ${characterName}`,
-                        `**Classe:** ${characterClass}`,
-                        `**Estado:** ${getCharacterStatusText(characterStatus)}`,
-                        `**Nível:** ${level}`,
-                        `**Principal:** ${
-                            finalMain
-                                ? 'Sim ⭐'
-                                : 'Não'
-                        }`,
-                    ].join(
-                        '\n',
-                    ),
-                );
-            } catch (
-                error: any
-            ) {
-                await dbClient.query(
-                    'ROLLBACK',
-                );
-
-                if (
-                    error.code ===
-                    '23505'
-                ) {
                     await interaction.editReply(
-                        `❌ Já existe uma personagem chamada **${characterName}** registada.`,
+                        [
+                            '✅ **Personagem atualizada!**',
+                            '',
+                            `**Nome:** ${characterName}`,
+                            `**Classe:** ${characterClass}`,
+                            `**Estado:** ${getCharacterStatusText(characterStatus)}`,
+                            `**Nível:** ${level}`,
+                            `**Principal:** ${
+                                finalMain
+                                    ? 'Sim ⭐'
+                                    : 'Não'
+                            }`,
+                        ].join(
+                            '\n',
+                        ),
+                    );
+                } catch (
+                    error: any
+                ) {
+                    await dbClient.query(
+                        'ROLLBACK',
                     );
 
-                    return;
-                }
+                    if (
+                        error.code ===
+                        '23505'
+                    ) {
+                        await interaction.editReply(
+                            `❌ Já existe uma personagem chamada **${characterName}** registada.`,
+                        );
 
+                        return;
+                    }
+
+                    console.error(
+                        error,
+                    );
+
+                    await interaction.editReply(
+                        '❌ Ocorreu um erro ao editar a personagem.',
+                    );
+                } finally {
+                    dbClient.release();
+                }
+            } catch (error) {
                 console.error(
+                    '❌ Erro ao ler modal de edição:',
                     error,
                 );
 
                 await interaction.editReply(
-                    '❌ Ocorreu um erro ao editar a personagem.',
+                    '❌ Não foi possível ler os dados da personagem. Confirma o estado PvM/PvP e tenta novamente.',
                 );
-            } finally {
-                dbClient.release();
             }
 
             return;

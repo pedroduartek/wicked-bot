@@ -1181,17 +1181,6 @@ async function reconcileAzuriaPanel(
             continue;
         }
 
-        // Discord não permite ao bot gerir
-        // membros cuja role máxima esteja
-        // acima/igual à role máxima do bot.
-        if (!member.manageable) {
-            console.log(
-                `⚠️ Não posso gerir ${member.user.username}; hierarquia do membro está acima da do bot.`,
-            );
-
-            continue;
-        }
-
         const hasPvmReaction =
             pvmUserIds.has(
                 member.id,
@@ -1730,13 +1719,6 @@ client.on(
                     fullUser.id,
                 );
 
-            if (!member.manageable) {
-                console.log(
-                    `⚠️ Não posso gerir ${fullUser.username}; hierarquia superior à do bot.`,
-                );
-
-                return;
-            }
 
             // =========================================
             // PvM

@@ -33,7 +33,7 @@ async function main() {
 
             resolved BOOLEAN NOT NULL DEFAULT FALSE,
             result TEXT,
-
+            resolved_by TEXT,
             resolved_at TIMESTAMPTZ,
 
             CONSTRAINT bets_result_check
@@ -47,10 +47,14 @@ async function main() {
         );
     `);
 
-    // Para instalações onde a tabela já existia
     await db.query(`
         ALTER TABLE bets
         ADD COLUMN IF NOT EXISTS reminder_sent_at TIMESTAMPTZ;
+    `);
+
+    await db.query(`
+        ALTER TABLE bets
+        ADD COLUMN IF NOT EXISTS resolved_by TEXT;
     `);
 
     await db.query(`
